@@ -4,25 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HidroSuite Pro | Herramientas de Ingeniería</title>
+    <!-- Estilos -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Iconos Phosphor -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <style>
-        /* Pequeño ajuste para que el iframe ocupe todo el espacio sin scroll extra */
+        /* Eliminar márgenes y ocultar scroll general para que el iframe sea el que haga scroll */
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+        
+        /* Estilizar la barra de scroll del menú para que se vea elegante */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
     </style>
 </head>
-<body class="bg-slate-50 flex flex-col md:flex-row h-screen font-sans text-slate-800">
+<body class="bg-slate-50 flex h-screen font-sans text-slate-800 overflow-hidden">
 
-    <aside class="w-full md:w-72 bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-10 transition-all duration-300">
-        <div class="p-6 bg-slate-950/50 border-b border-slate-800">
+    <!-- Menú Lateral (Sidebar) con transición de margen -->
+    <aside id="sidebar" class="w-72 h-full bg-slate-900 text-slate-300 flex flex-col shadow-2xl z-50 transition-all duration-300 ease-in-out flex-shrink-0 ml-0 relative">
+        
+        <!-- Botón para Colapsar/Expandir -->
+        <button onclick="toggleSidebar()" class="absolute top-6 -right-4 w-8 h-8 bg-cyan-600 text-white rounded-full flex items-center justify-center shadow-xl hover:bg-cyan-400 transition-colors z-50 border-4 border-slate-50 cursor-pointer" title="Ocultar/Mostrar Menú">
+            <i id="toggle-icon" class="ph ph-caret-left text-sm font-bold"></i>
+        </button>
+
+        <!-- Cabecera del Menú -->
+        <div class="p-6 bg-slate-950/50 border-b border-slate-800 flex-shrink-0">
             <h1 class="text-2xl font-black text-white flex items-center gap-2 tracking-tight">
                 <i class="ph ph-drop text-cyan-400 text-3xl"></i>
                 HidroSuite <span class="text-cyan-400 font-light">Pro</span>
             </h1>
-            <p class="text-xs text-slate-500 mt-2 tracking-widest uppercase font-bold">vibe coded by jchilet</p>
+            <p class="text-[10px] text-slate-500 mt-2 tracking-widest uppercase font-bold">vibe coded by jchilet</p>
         </div>
 
-        <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+        <!-- Botones de Navegación -->
+        <nav class="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
+            
+            <p class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 mt-2 px-2">Hidráulica</p>
+            
             <button onclick="loadTool('calculadora_zanjas.html', this)" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-cyan-600/20 text-cyan-400 font-bold transition-all border border-cyan-500/30">
                 <i class="ph ph-ruler text-xl"></i> Zanjas de Riego
             </button>
@@ -34,21 +54,33 @@
             <button onclick="loadTool('flushing_purgas.html', this)" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-all text-slate-400 font-medium border border-transparent">
                 <i class="ph ph-waves text-xl"></i> Flushing & Purgas
             </button>
+
+            <p class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 mt-6 px-2">Diseño y Agronomía</p>
+
+            <button onclick="loadTool('reservoir_simulator.html', this)" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-all text-slate-400 font-medium border border-transparent">
+                <i class="ph ph-cube text-xl"></i> Simulador Reservorio
+            </button>
+
+            <button onclick="loadTool('berrie_visualizer.html', this)" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-all text-slate-400 font-medium border border-transparent">
+                <i class="ph ph-plant text-xl"></i> Planificador Arándanos
+            </button>
+
         </nav>
 
-        <div class="p-6 bg-slate-950/30 border-t border-slate-800">
-            <a href="https://www.linkedin.com/" target="_blank" rel="noopener noreferrer" class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#0A66C2] text-white rounded-xl hover:bg-blue-700 hover:shadow-lg transition-all text-sm font-bold shadow-md">
-                <i class="ph ph-linkedin-logo text-xl"></i> Conectar en LinkedIn
-            </a>
-            <p class="text-center text-[10px] text-slate-600 mt-3">Herramientas de cálculo hidráulico</p>
+        <!-- Pie de página minimalista -->
+        <div class="p-4 bg-slate-950/30 border-t border-slate-800 text-center flex-shrink-0">
+            <p class="text-[10px] text-slate-600 tracking-wide">HidroSuite Pro &copy; 2024</p>
         </div>
     </aside>
 
-    <main class="flex-1 bg-slate-100 relative w-full h-full">
-        <div id="loader" class="absolute inset-0 flex items-center justify-center bg-slate-50 z-0">
+    <!-- Contenido Principal -->
+    <main class="flex-1 bg-slate-100 relative w-full h-full z-0">
+        <!-- Cargador visual sutil -->
+        <div id="loader" class="absolute inset-0 flex items-center justify-center bg-slate-50 z-20">
             <i class="ph ph-spinner-gap text-4xl text-cyan-500 animate-spin"></i>
         </div>
         
+        <!-- Iframe inicializado con la primera herramienta -->
         <iframe 
             id="tool-frame" 
             src="calculadora_zanjas.html" 
@@ -57,22 +89,43 @@
         ></iframe>
     </main>
 
+    <!-- Scripts funcionales -->
     <script>
+        // Función para cambiar de herramienta
         function loadTool(url, btnElement) {
-            // Mostrar loader
             document.getElementById('loader').style.display = 'flex';
-            
-            // Cambiar la fuente del iframe
             document.getElementById('tool-frame').src = url;
             
-            // Reiniciar el estilo de todos los botones al estado "inactivo"
+            // Reiniciar estilo de botones
             const buttons = document.querySelectorAll('.nav-btn');
             buttons.forEach(btn => {
                 btn.className = 'nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition-all text-slate-400 font-medium border border-transparent';
             });
 
-            // Aplicar el estilo de "activo" al botón que se acaba de hacer clic
+            // Activar botón seleccionado
             btnElement.className = 'nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-cyan-600/20 text-cyan-400 font-bold transition-all border border-cyan-500/30';
+            
+            // Opcional: Si en móviles queremos que el menú se oculte automáticamente al elegir algo
+            if(window.innerWidth < 768) {
+                toggleSidebar();
+            }
+        }
+
+        // Función para contraer/expandir el panel lateral
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const icon = document.getElementById('toggle-icon');
+            
+            // '-ml-72' empuja el panel hacia la izquierda su ancho total (72 unidades de tailwind = 288px)
+            if (sidebar.classList.contains('-ml-72')) {
+                sidebar.classList.remove('-ml-72');
+                icon.classList.replace('ph-list', 'ph-caret-left');
+                icon.classList.replace('ph-caret-right', 'ph-caret-left');
+            } else {
+                sidebar.classList.add('-ml-72');
+                icon.classList.replace('ph-caret-left', 'ph-list'); 
+                // Usamos el ícono de "lista/hamburguesa" cuando está colapsado para que sea intuitivo volver a abrirlo
+            }
         }
     </script>
 </body>
