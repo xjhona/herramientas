@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Reservorio Pro</title>
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons (CDN) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Estilos base para evitar selecciones accidentales al rotar en 3D */
+        .select-none { user-select: none; -webkit-user-select: none; }
+        .touch-none { touch-action: none; }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body class="min-h-screen bg-neutral-100 p-4 md:p-8 font-sans text-neutral-800">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="bg-white rounded-2xl p-6 shadow-sm border border-neutral-200 flex items-center gap-4">
+            <div class="p-3 bg-blue-100 text-blue-600 rounded-xl">
+                <i data-lucide="droplets" class="w-7 h-7"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-neutral-900 flex items-baseline gap-3 flex-wrap">
+                    Simulador de Reservorio Pro
+                    <span class="text-xs font-medium text-neutral-400 tracking-wide lowercase">vibe coded by jchilet</span>
+                </h1>
+                <p class="text-neutral-500">Diseño Geométrico 3D y Perfiles Transversales</p>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Panel Lateral: Controles -->
+            <div class="lg:col-span-4 space-y-4">
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-neutral-200">
+                    <h2 class="text-lg font-semibold mb-5 flex items-center gap-2">
+                        <i data-lucide="settings" class="w-5 h-5 text-neutral-500"></i> Parámetros de Diseño
+                    </h2>
+                    
+                    <div class="space-y-5" id="controls-container">
+                        <!-- Los controles se inyectan por JS para mantener el código DRY, pero usaremos HTML estático para mayor facilidad de lectura -->
+                        <div class="control-group">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-sm font-medium text-neutral-700">Ancho Superior (A)</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="A-num" class="w-20 text-right text-sm font-bold text-blue-600 bg-blue-50 border border-blue-100 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                    <span class="text-sm font-bold text-blue-600">m</span>
+                                </div>
+                            </div>
+                            <input type="range" id="A-range" min="10" max="300" step="1" class="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        </div>
+
+                        <div class="control-group">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-sm font-medium text-neutral-700">Largo Superior (B)</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="B-num" class="w-20 text-right text-sm font-bold text-blue-600 bg-blue-50 border border-blue-100 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                    <span class="text-sm font-bold text-blue-600">m</span>
+                                </div>
+                            </div>
+                            <input type="range" id="B-range" min="10" max="300" step="1" class="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        </div>
+
+                        <div class="control-group">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-sm font-medium text-neutral-700">Profundidad (H)</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="H-num" class="w-20 text-right text-sm font-bold text-blue-600 bg-blue-50 border border-blue-100 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                    <span class="text-sm font-bold text-blue-600">m</span>
+                                </div>
+                            </div>
+                            <input type="range" id="H-range" min="1" max="25" step="0.1" class="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        </div>
+
+                        <div class="control-group">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-sm font-medium text-neutral-700">Talud Z (dy/dx)</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="Z-num" class="w-20 text-right text-sm font-bold text-blue-600 bg-blue-50 border border-blue-100 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                    <span class="text-sm font-bold text-blue-600"></span>
+                                </div>
+                            </div>
+                            <input type="range" id="Z-range" min="0.1" max="1.5" step="0.05" class="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        </div>
+
+                        <div class="control-group">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-sm font-medium text-neutral-700">Ancho Corona (E)</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="E-num" class="w-20 text-right text-sm font-bold text-blue-600 bg-blue-50 border border-blue-100 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                    <span class="text-sm font-bold text-blue-600">m</span>
+                                </div>
+                            </div>
+                            <input type="range" id="E-range" min="0.5" max="10" step="0.5" class="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        </div>
+
+                        <div class="control-group">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-sm font-medium text-neutral-700">Borde Libre (Fb)</label>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" id="Fb-num" class="w-20 text-right text-sm font-bold text-blue-600 bg-blue-50 border border-blue-100 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                    <span class="text-sm font-bold text-blue-600">m</span>
+                                </div>
+                            </div>
+                            <input type="range" id="Fb-range" min="0.1" max="3" step="0.1" class="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel de Cotizaciones -->
+                <div id="panel-cotizaciones" class="bg-white rounded-2xl p-6 shadow-sm border border-neutral-200">
+                    <h3 class="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4">Cotizaciones Automáticas</h3>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="p-3 bg-neutral-50 rounded-lg"><span class="text-neutral-500 block">Fondo C</span><strong class="text-lg" id="res-C">0m</strong></div>
+                        <div class="p-3 bg-neutral-50 rounded-lg"><span class="text-neutral-500 block">Fondo D</span><strong class="text-lg" id="res-D">0m</strong></div>
+                        <div class="p-3 bg-orange-50 rounded-lg"><span class="text-orange-600 block">Corte (Hz)</span><strong class="text-lg text-orange-700" id="res-Hz">0m</strong></div>
+                        <div class="p-3 bg-emerald-50 rounded-lg"><span class="text-emerald-600 block">Relleno (Hf)</span><strong class="text-lg text-emerald-700" id="res-Hf">0m</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Área Principal: Visualización 3D y Perfiles -->
+            <div class="lg:col-span-8 flex flex-col gap-6">
+                
+                <div class="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden flex flex-col h-[600px] relative">
+                    
+                    <!-- Pestañas -->
+                    <div class="flex bg-neutral-50 border-b border-neutral-200 p-2 gap-2 overflow-x-auto">
+                        <button onclick="setViewMode('3D')" id="tab-3D" class="whitespace-nowrap px-4 py-2 rounded-lg font-medium text-sm transition-colors bg-white text-blue-600 shadow-sm border border-neutral-200">
+                            Vista 3D Orbital
+                        </button>
+                        <button onclick="setViewMode('X')" id="tab-X" class="whitespace-nowrap px-4 py-2 rounded-lg font-medium text-sm transition-colors text-neutral-500 hover:bg-neutral-100">
+                            Perfil X (Corte Ancho)
+                        </button>
+                        <button onclick="setViewMode('Y')" id="tab-Y" class="whitespace-nowrap px-4 py-2 rounded-lg font-medium text-sm transition-colors text-neutral-500 hover:bg-neutral-100">
+                            Perfil Y (Corte Largo)
+                        </button>
+                    </div>
+
+                    <!-- Controles de Cámara 3D -->
+                    <div id="controls-3d" class="absolute top-16 right-4 z-10 flex flex-col gap-2">
+                        <button onclick="changeZoom(1.2)" class="p-2 bg-white rounded-lg shadow-md hover:bg-neutral-50 border border-neutral-200"><i data-lucide="zoom-in" class="w-5 h-5 text-neutral-700"></i></button>
+                        <button onclick="changeZoom(1/1.2)" class="p-2 bg-white rounded-lg shadow-md hover:bg-neutral-50 border border-neutral-200"><i data-lucide="zoom-out" class="w-5 h-5 text-neutral-700"></i></button>
+                        <button onclick="resetCam()" class="p-2 bg-white rounded-lg shadow-md hover:bg-neutral-50 border border-neutral-200 mt-2"><i data-lucide="rotate-ccw" class="w-5 h-5 text-blue-600"></i></button>
+                    </div>
+                    <div id="hint-3d" class="absolute top-16 left-4 z-10 pointer-events-none bg-white/70 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm flex items-center gap-2 border border-neutral-200/50">
+                        <i data-lucide="move" class="w-4 h-4 text-neutral-500"></i>
+                        <span class="text-xs font-medium text-neutral-600">Arrastra para girar • Rueda para zoom</span>
+                    </div>
+
+                    <!-- Canvas SVG -->
+                    <div id="render-area" class="flex-1 relative bg-gradient-to-b from-sky-50 to-neutral-100 overflow-hidden touch-none" style="cursor: grab;">
+                        <div id="error-msg" class="hidden h-full flex-col items-center justify-center p-6 text-center">
+                            <i data-lucide="alert-triangle" class="w-12 h-12 text-red-400 mb-4 mx-auto"></i>
+                            <p class="text-red-600 font-medium" id="error-text">Geometría inválida.</p>
+                        </div>
+                        <div id="svg-container" class="w-full h-full"></div>
+                    </div>
+                </div>
+
+                <!-- Panel Inferior: Volúmenes y Tierras -->
+                <div id="panel-volumenes" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-neutral-200">
+                        <h3 class="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2"><i data-lucide="mountain" class="w-4 h-4"></i> Balance de Tierras</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-end border-b border-neutral-100 pb-3"><span class="text-neutral-600">Corte</span><strong class="text-xl text-orange-600" id="res-vCut">0 m³</strong></div>
+                            <div class="flex justify-between items-end border-b border-neutral-100 pb-3"><span class="text-neutral-600">Relleno</span><strong class="text-xl text-emerald-600" id="res-vFill">0 m³</strong></div>
+                            <div class="flex justify-between items-end pt-1"><span class="text-neutral-800 font-medium">Corte / Relleno</span><strong class="text-xl text-blue-600 bg-blue-50 px-3 py-1 rounded-lg" id="res-ratio">1.00000</strong></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-neutral-200">
+                        <h3 class="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2"><i data-lucide="droplets" class="w-4 h-4"></i> Capacidad Hidráulica</h3>
+                        <div class="flex flex-col h-full justify-center space-y-6">
+                            <div>
+                                <span class="text-neutral-500 text-sm block mb-1">Volumen Útil (Agua)</span>
+                                <div class="flex items-baseline gap-2">
+                                    <strong class="text-4xl text-blue-600 font-bold" id="res-vWater">0</strong>
+                                    <span class="text-blue-400 font-medium">m³</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de Lógica Principal -->
+    <script>
+        // Inicializar Iconos
+        lucide.createIcons();
+
+        // Variables de Estado
+        const state = {
+            A: 35, B: 60, H: 4.5, E: 3, Z: 0.5, Fb: 0.5,
+            viewMode: '3D',
+            cam: { rx: Math.PI / 6, rz: Math.PI / 4, zoom: 1 }
+        };
+
+        const defaultCam = { rx: Math.PI / 6, rz: Math.PI / 4, zoom: 1 };
+        let isDragging = false;
+        let lastPos = { x: 0, y: 0 };
+        let calcData = {};
+
+        // Vinculación de Entradas (Inputs)
+        function bindInputs(key) {
+            const num = document.getElementById(`${key}-num`);
+            const range = document.getElementById(`${key}-range`);
+            
+            num.value = state[key];
+            range.value = state[key];
+
+            num.addEventListener('input', (e) => {
+                state[key] = parseFloat(e.target.value) || 0;
+                range.value = state[key];
+                updateApp();
+            });
+
+            range.addEventListener('input', (e) => {
+                state[key] = parseFloat(e.target.value);
+                num.value = state[key];
+                updateApp();
+            });
+        }
+
+        ['A', 'B', 'H', 'E', 'Z', 'Fb'].forEach(bindInputs);
+
+        // Controladores de Cámara
+        function setViewMode(mode) {
+            state.viewMode = mode;
+            
+            // Actualizar Pestañas Visuales
+            const tabs = ['3D', 'X', 'Y'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if(t === mode) {
+                    btn.className = "whitespace-nowrap px-4 py-2 rounded-lg font-medium text-sm transition-colors bg-white text-blue-600 shadow-sm border border-neutral-200";
+                } else {
+                    btn.className = "whitespace-nowrap px-4 py-2 rounded-lg font-medium text-sm transition-colors text-neutral-500 hover:bg-neutral-100";
+                }
+            });
+
+            // Mostrar/Ocultar Controles 3D
+            const is3D = mode === '3D';
+            document.getElementById('controls-3d').style.display = is3D ? 'flex' : 'none';
+            document.getElementById('hint-3d').style.display = is3D ? 'flex' : 'none';
+            document.getElementById('render-area').style.cursor = is3D ? 'grab' : 'default';
+
+            updateApp();
+        }
+
+        function changeZoom(factor) {
+            state.cam.zoom = Math.max(0.3, Math.min(5, state.cam.zoom * factor));
+            updateApp();
+        }
+
+        function resetCam() {
+            state.cam = { ...defaultCam };
+            updateApp();
+        }
+
+        // Eventos de Ratón/Táctil para Rotación 3D
+        const renderArea = document.getElementById('render-area');
+        
+        renderArea.addEventListener('pointerdown', (e) => {
+            if(state.viewMode !== '3D') return;
+            isDragging = true;
+            lastPos = { x: e.clientX, y: e.clientY };
+            renderArea.style.cursor = 'grabbing';
+            renderArea.setPointerCapture(e.pointerId);
+        });
+
+        renderArea.addEventListener('pointermove', (e) => {
+            if (!isDragging || state.viewMode !== '3D') return;
+            const dx = e.clientX - lastPos.x;
+            const dy = e.clientY - lastPos.y;
+            
+            state.cam.rz -= dx * 0.01;
+            state.cam.rx = Math.max(0, Math.min(Math.PI / 2, state.cam.rx + dy * 0.01));
+            
+            lastPos = { x: e.clientX, y: e.clientY };
+            updateApp();
+        });
+
+        const stopDrag = (e) => {
+            isDragging = false;
+            if(state.viewMode === '3D') renderArea.style.cursor = 'grab';
+            renderArea.releasePointerCapture(e.pointerId);
+        };
+        renderArea.addEventListener('pointerup', stopDrag);
+        renderArea.addEventListener('pointercancel', stopDrag);
+
+        renderArea.addEventListener('wheel', (e) => {
+            if(state.viewMode !== '3D') return;
+            e.preventDefault();
+            state.cam.zoom = Math.max(0.3, Math.min(5, state.cam.zoom - e.deltaY * 0.001));
+            updateApp();
+        });
+
+        // ==========================================
+        // LÓGICA DE INGENIERÍA Y MOTOR GRÁFICO
+        // ==========================================
+        function calculate() {
+            const { A, B, H, E, Z, Fb } = state;
+            const m = 1 / Z;
+            const C = A - 2 * H * m;
+            const D = B - 2 * H * m;
+
+            if (C < 0 || D < 0) {
+                return { error: 'Geometría inválida: La profundidad es demasiado grande para este talud y tamaño.' };
+            }
+
+            const calcVol = (w1, l1, w2, l2, h) => {
+                const a1 = w1 * l1;
+                const a2 = w2 * l2;
+                return (h / 3) * (a1 + a2 + Math.sqrt(Math.max(0, a1 * a2)));
+            };
+
+            // Bisección (Balance Tierras)
+            let low = 0, high = H, h_fill = 0, h_cut = 0, vCut = 0, vFill = 0;
+            for (let i = 0; i < 50; i++) {
+                h_fill = (low + high) / 2;
+                h_cut = H - h_fill;
+                let Ag = C + 2 * h_cut * m, Bg = D + 2 * h_cut * m;
+                vCut = calcVol(C, D, Ag, Bg, h_cut);
+                let Aout = A + 2 * E, Bout = B + 2 * E;
+                let Aog = Aout + 2 * h_fill * m, Bog = Bout + 2 * h_fill * m;
+                let vOuter = calcVol(Aout, Bout, Aog, Bog, h_fill);
+                let vInnerAir = calcVol(A, B, Ag, Bg, h_fill);
+                vFill = vOuter - vInnerAir;
+                if (vCut < vFill) high = h_fill; else low = h_fill;
+            }
+
+            let H_water = H - Fb;
+            let Aw = C + 2 * H_water * m, Bw = D + 2 * H_water * m;
+            let vWater = calcVol(C, D, Aw, Bw, H_water);
+
+            return { error: null, m, C, D, h_fill, h_cut, vCut, vFill, vWater, A, B, H, E, Fb };
+        }
+
+        function render3D(data) {
+            const { m, C, D, h_fill, h_cut, A, B, H, E, Fb } = data;
+            const Aw = C + 2 * (H - Fb) * m;
+            const Bw = D + 2 * (H - Fb) * m;
+
+            const project3D = (v) => {
+                const [x, y, z] = v;
+                const cx = Math.cos(state.cam.rz), sx = Math.sin(state.cam.rz);
+                const cy = Math.cos(state.cam.rx), sy = Math.sin(state.cam.rx);
+                const x1 = x * cx - y * sx;
+                const y1 = x * sx + y * cx;
+                return [x1, y1 * sy - z * cy, y1 * cy + z * sy];
+            };
+
+            const getVerts = (w, l, z) => [ [-w/2, -l/2, z], [ w/2, -l/2, z], [ w/2, l/2, z], [-w/2, l/2, z] ];
+
+            const bottomV = getVerts(C, D, -h_cut);
+            const topInnerV = getVerts(A, B, h_fill);
+            const topOuterV = getVerts(A + 2*E, B + 2*E, h_fill);
+            const groundOuterV = getVerts(A + 2*E + 2*h_fill*m, B + 2*E + 2*h_fill*m, 0);
+            const waterV = getVerts(Aw, Bw, h_fill - Fb);
+
+            const faces = [];
+            const addFace = (v1, v2, v3, v4, color) => faces.push({ verts: [v1, v2, v3, v4], color });
+
+            addFace(bottomV[0], bottomV[1], topInnerV[1], topInnerV[0], '#d0b389');
+            addFace(bottomV[3], bottomV[0], topInnerV[0], topInnerV[3], '#bc9e71');
+            addFace(bottomV[0], bottomV[1], bottomV[2], bottomV[3], '#e3cfae');
+            addFace(waterV[0], waterV[1], waterV[2], waterV[3], 'rgba(56,189,248,0.75)');
+            addFace(topInnerV[0], topInnerV[1], topOuterV[1], topOuterV[0], '#9e8156');
+            addFace(topInnerV[3], topInnerV[0], topOuterV[0], topOuterV[3], '#b49566');
+            addFace(topInnerV[1], topInnerV[2], topOuterV[2], topOuterV[1], '#c5a77a');
+            addFace(topInnerV[2], topInnerV[3], topOuterV[3], topOuterV[2], '#dcc096');
+            addFace(topOuterV[2], topOuterV[3], groundOuterV[3], groundOuterV[2], '#9c7c4c');
+            addFace(topOuterV[1], topOuterV[2], groundOuterV[2], groundOuterV[1], '#86683d');
+
+            faces.forEach(face => {
+                let d = 0;
+                face.verts.forEach(v => d += project3D(v)[2]);
+                face.depth = d / 4; 
+            });
+            faces.sort((a, b) => a.depth - b.depth);
+
+            const D_OFFSET = Math.max(A, B) * 0.15;
+            const xR = A/2 + E + h_fill*m + D_OFFSET*0.5, xR2 = xR + D_OFFSET*0.5;
+
+            const annotations3D = [
+                { p1: [-A/2, -B/2 - D_OFFSET, h_fill], p2: [A/2, -B/2 - D_OFFSET, h_fill], label: `A = ${A.toFixed(1)}m`, color: '#2563eb' },
+                { ext: true, p1: [-A/2, -B/2, h_fill], p2: [-A/2, -B/2 - D_OFFSET, h_fill] },
+                { ext: true, p1: [A/2, -B/2, h_fill], p2: [A/2, -B/2 - D_OFFSET, h_fill] },
+                { p1: [-A/2 - D_OFFSET, -B/2, h_fill], p2: [-A/2 - D_OFFSET, B/2, h_fill], label: `B = ${B.toFixed(1)}m`, color: '#2563eb' },
+                { ext: true, p1: [-A/2, -B/2, h_fill], p2: [-A/2 - D_OFFSET, -B/2, h_fill] },
+                { ext: true, p1: [-A/2, B/2, h_fill], p2: [-A/2 - D_OFFSET, B/2, h_fill] },
+                { p1: [-C/2, D/2 + D_OFFSET, -h_cut], p2: [C/2, D/2 + D_OFFSET, -h_cut], label: `C = ${C.toFixed(1)}m`, color: '#334155' },
+                { ext: true, p1: [-C/2, D/2, -h_cut], p2: [-C/2, D/2 + D_OFFSET, -h_cut] },
+                { ext: true, p1: [C/2, D/2, -h_cut], p2: [C/2, D/2 + D_OFFSET, -h_cut] },
+                { p1: [A/2, B/2 + D_OFFSET*0.5, h_fill], p2: [A/2 + E, B/2 + D_OFFSET*0.5, h_fill], label: `E = ${E.toFixed(1)}m`, color: '#7c3aed' },
+                { ext: true, p1: [A/2, B/2, h_fill], p2: [A/2, B/2 + D_OFFSET*0.5, h_fill] },
+                { ext: true, p1: [A/2 + E, B/2, h_fill], p2: [A/2 + E, B/2 + D_OFFSET*0.5, h_fill] },
+                { p1: [xR, 0, h_fill], p2: [xR, 0, 0], label: `Hf = ${h_fill.toFixed(2)}m`, color: '#059669', offset: [-20, 0] },
+                { p1: [xR, 0, 0], p2: [xR, 0, -h_cut], label: `Hz = ${h_cut.toFixed(2)}m`, color: '#ea580c', offset: [-20, 0] },
+                { ext: true, p1: [A/2 + E, 0, h_fill], p2: [xR, 0, h_fill] },
+                { ext: true, p1: [C/2, 0, -h_cut], p2: [xR, 0, -h_cut] },
+                { p1: [xR2, 0, h_fill], p2: [xR2, 0, -h_cut], label: `H = ${H.toFixed(1)}m`, color: '#475569', offset: [20, 0] },
+                { ext: true, p1: [xR, 0, h_fill], p2: [xR2, 0, h_fill] },
+                { ext: true, p1: [xR, 0, -h_cut], p2: [xR2, 0, -h_cut] }
+            ];
+
+            const maxBound = Math.max(A + 2*E + 2*h_fill*m, B + 2*E + 2*h_fill*m) * 1.3;
+            const scale3D = (450 / maxBound) * state.cam.zoom;
+            
+            const p2d = (v) => {
+                const proj = project3D(v);
+                return [proj[0] * scale3D + 400, proj[1] * scale3D + 250];
+            };
+
+            let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 800 500" class="drop-shadow-xl select-none">`;
+            
+            faces.forEach(face => {
+                const pts = face.verts.map(v => p2d(v).join(',')).join(' ');
+                svgContent += `<polygon points="${pts}" fill="${face.color}" stroke="rgba(0,0,0,0.06)" stroke-width="1" stroke-linejoin="round" />`;
+            });
+
+            annotations3D.forEach(a => {
+                const [x1, y1] = p2d(a.p1);
+                const [x2, y2] = p2d(a.p2);
+                if (a.ext) {
+                    svgContent += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 4" />`;
+                } else {
+                    const mx = (x1 + x2) / 2 + (a.offset ? a.offset[0] : 0);
+                    const my = (y1 + y2) / 2 + (a.offset ? a.offset[1] : 0);
+                    svgContent += `
+                        <g>
+                            <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${a.color}" stroke-width="1.5" />
+                            <circle cx="${x1}" cy="${y1}" r="2.5" fill="${a.color}" />
+                            <circle cx="${x2}" cy="${y2}" r="2.5" fill="${a.color}" />
+                            <text x="${mx}" y="${my}" text-anchor="middle" dominant-baseline="central" fill="${a.color}" font-size="13" font-weight="700" paint-order="stroke fill" stroke="rgba(255,255,255,0.85)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">${a.label}</text>
+                        </g>`;
+                }
+            });
+
+            svgContent += `</svg>`;
+            return svgContent;
+        }
+
+        function render2D(data, type) {
+            const { m, C, D, h_fill: hf, h_cut: hc, A, B, H, E, Fb } = data;
+            const topW = type === 'X' ? A : B;
+            const botW = type === 'X' ? C : D;
+            const labelTop = type === 'X' ? 'A (Ancho Sup.)' : 'B (Largo Sup.)';
+            const labelBot = type === 'X' ? 'C (Ancho Fondo)' : 'D (Largo Fondo)';
+
+            const xi_top = topW / 2;
+            const xo_top = xi_top + E;
+            const xo_grnd = xo_top + hf * m;
+            const xi_bot = botW / 2;
+            const y_wat = hf - Fb;
+            const xw_wat = xi_bot + (y_wat - (-hc)) * m;
+
+            const svgW = 800, svgH = 500;
+            const maxW = xo_grnd * 2 * 1.3; 
+            const maxH = H * 1.6;
+            const scale = Math.min(svgW / maxW, svgH / maxH) * state.cam.zoom; // Aplica zoom a 2D tambien
+            const cx = svgW / 2;
+            const cy = svgH / 2 + ((hf - hc) / 2) * scale;
+            
+            const p = (x, y) => `${cx + x * scale},${cy - y * scale}`;
+
+            return `
+            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 800 500" class="drop-shadow-sm select-none">
+                <defs>
+                    <pattern id="diagonalHatch" patternUnits="userSpaceOnUse" width="10" height="10">
+                        <path d="M-1,1 l2,-2 M0,10 l10,-10 M9,11 l2,-2" stroke="rgba(156, 124, 76, 0.2)" stroke-width="1" />
+                    </pattern>
+                </defs>
+
+                <!-- NTN -->
+                <line x1="0" y1="${cy}" x2="${svgW}" y2="${cy}" stroke="#65a30d" stroke-width="2" stroke-dasharray="8 6" />
+                <text x="20" y="${cy - 10}" fill="#65a30d" font-size="12" font-weight="bold">NTN (Nivel Terreno Natural)</text>
+
+                <!-- Muros -->
+                <polygon points="${p(-xo_grnd, 0)} ${p(-xo_top, hf)} ${p(-xi_top, hf)} ${p(-xi_top + hf*m, 0)}" fill="#dcc096" stroke="#b49566" stroke-width="2" stroke-linejoin="round" />
+                <polygon points="${p(xo_grnd, 0)} ${p(xo_top, hf)} ${p(xi_top, hf)} ${p(xi_top - hf*m, 0)}" fill="#dcc096" stroke="#b49566" stroke-width="2" stroke-linejoin="round" />
+
+                <!-- Suelo (Excavación) -->
+                <polygon points="${p(-xi_top + hf*m, 0)} ${p(-xi_bot, -hc)} ${p(xi_bot, -hc)} ${p(xi_top - hf*m, 0)}" fill="url(#diagonalHatch)" stroke="#86683d" stroke-width="2" stroke-linejoin="round" />
+
+                <!-- Agua -->
+                <polygon points="${p(-xw_wat, y_wat)} ${p(-xi_bot, -hc)} ${p(xi_bot, -hc)} ${p(xw_wat, y_wat)}" fill="rgba(56,189,248,0.5)" stroke="#0ea5e9" stroke-width="1.5" stroke-linejoin="round" />
+                <line x1="${cx - xw_wat*scale}" y1="${cy - y_wat*scale}" x2="${cx + xw_wat*scale}" y2="${cy - y_wat*scale}" stroke="#0ea5e9" stroke-width="2" stroke-dasharray="5 5" />
+
+                <!-- Acotaciones -->
+                <g font-size="13" font-weight="bold" text-anchor="middle" paint-order="stroke fill" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                    <!-- Top -->
+                    <line x1="${cx - xi_top*scale}" y1="${cy - (hf+1.5)*scale}" x2="${cx + xi_top*scale}" y2="${cy - (hf+1.5)*scale}" stroke="#2563eb" stroke-width="1.5" />
+                    <circle cx="${cx - xi_top*scale}" cy="${cy - (hf+1.5)*scale}" r="3" fill="#2563eb" />
+                    <circle cx="${cx + xi_top*scale}" cy="${cy - (hf+1.5)*scale}" r="3" fill="#2563eb" />
+                    <line x1="${cx - xi_top*scale}" y1="${cy - hf*scale}" x2="${cx - xi_top*scale}" y2="${cy - (hf+2)*scale}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 3"/>
+                    <line x1="${cx + xi_top*scale}" y1="${cy - hf*scale}" x2="${cx + xi_top*scale}" y2="${cy - (hf+2)*scale}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 3"/>
+                    <text x="${cx}" y="${cy - (hf+2)*scale}" fill="#2563eb">${labelTop} = ${topW.toFixed(1)}m</text>
+
+                    <!-- Bottom -->
+                    <line x1="${cx - xi_bot*scale}" y1="${cy - (-hc-1)*scale}" x2="${cx + xi_bot*scale}" y2="${cy - (-hc-1)*scale}" stroke="#334155" stroke-width="1.5" />
+                    <circle cx="${cx - xi_bot*scale}" cy="${cy - (-hc-1)*scale}" r="3" fill="#334155" />
+                    <circle cx="${cx + xi_bot*scale}" cy="${cy - (-hc-1)*scale}" r="3" fill="#334155" />
+                    <line x1="${cx - xi_bot*scale}" y1="${cy - (-hc)*scale}" x2="${cx - xi_bot*scale}" y2="${cy - (-hc-1.5)*scale}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 3"/>
+                    <line x1="${cx + xi_bot*scale}" y1="${cy - (-hc)*scale}" x2="${cx + xi_bot*scale}" y2="${cy - (-hc-1.5)*scale}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 3"/>
+                    <text x="${cx}" y="${cy - (-hc-1.8)*scale}" fill="#334155">${labelBot} = ${botW.toFixed(1)}m</text>
+
+                    <!-- E & Fb -->
+                    <line x1="${cx - xo_top*scale}" y1="${cy - (hf+0.8)*scale}" x2="${cx - xi_top*scale}" y2="${cy - (hf+0.8)*scale}" stroke="#7c3aed" stroke-width="1.5" />
+                    <circle cx="${cx - xo_top*scale}" cy="${cy - (hf+0.8)*scale}" r="3" fill="#7c3aed" />
+                    <circle cx="${cx - xi_top*scale}" cy="${cy - (hf+0.8)*scale}" r="3" fill="#7c3aed" />
+                    <line x1="${cx - xo_top*scale}" y1="${cy - hf*scale}" x2="${cx - xo_top*scale}" y2="${cy - (hf+1.2)*scale}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 3"/>
+                    <text x="${cx - (xi_top+E/2)*scale}" y="${cy - (hf+1.3)*scale}" fill="#7c3aed">E=${E.toFixed(1)}</text>
+
+                    <line x1="${cx + xi_top*scale - 10}" y1="${cy - hf*scale}" x2="${cx + xi_top*scale - 10}" y2="${cy - y_wat*scale}" stroke="#0ea5e9" stroke-width="1.5" />
+                    <text x="${cx + xi_top*scale - 30}" y="${cy - (hf - Fb/2)*scale + 4}" fill="#0ea5e9">Fb=${Fb}</text>
+
+                    <!-- Right Axis -->
+                    <line x1="${cx + xo_grnd*scale + 20}" y1="${cy - hf*scale}" x2="${cx + xo_grnd*scale + 20}" y2="${cy}" stroke="#059669" stroke-width="1.5" />
+                    <line x1="${cx + xo_grnd*scale + 20}" y1="${cy}" x2="${cx + xo_grnd*scale + 20}" y2="${cy - (-hc)*scale}" stroke="#ea580c" stroke-width="1.5" />
+                    <line x1="${cx + xo_grnd*scale + 60}" y1="${cy - hf*scale}" x2="${cx + xo_grnd*scale + 60}" y2="${cy - (-hc)*scale}" stroke="#475569" stroke-width="1.5" />
+                    
+                    <line x1="${cx + xi_top*scale}" y1="${cy - hf*scale}" x2="${cx + xo_grnd*scale + 65}" y2="${cy - hf*scale}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 3"/>
+                    <line x1="${cx + xi_bot*scale}" y1="${cy - (-hc)*scale}" x2="${cx + xo_grnd*scale + 65}" y2="${cy - (-hc)*scale}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 3"/>
+                    
+                    <text x="${cx + xo_grnd*scale + 35}" y="${cy - (hf/2)*scale}" fill="#059669">Hf=${hf.toFixed(2)}</text>
+                    <text x="${cx + xo_grnd*scale + 35}" y="${cy - (-hc/2)*scale}" fill="#ea580c">Hz=${hc.toFixed(2)}</text>
+                    <text x="${cx + xo_grnd*scale + 75}" y="${cy - ((hf-hc)/2)*scale}" fill="#475569">H=${H.toFixed(1)}</text>
+                </g>
+            </svg>`;
+        }
+
+        function updateApp() {
+            const data = calculate();
+            const errDiv = document.getElementById('error-msg');
+            const errText = document.getElementById('error-text');
+            const svgCont = document.getElementById('svg-container');
+            const pCotiza = document.getElementById('panel-cotizaciones');
+            const pVol = document.getElementById('panel-volumenes');
+
+            if (data.error) {
+                errText.innerText = data.error;
+                errDiv.style.display = 'flex';
+                svgCont.style.display = 'none';
+                pCotiza.style.display = 'none';
+                pVol.style.display = 'none';
+                return;
+            }
+
+            errDiv.style.display = 'none';
+            svgCont.style.display = 'block';
+            pCotiza.style.display = 'block';
+            pVol.style.display = 'grid';
+
+            // Actualizar Textos
+            document.getElementById('res-C').innerText = `${data.C.toFixed(2)}m`;
+            document.getElementById('res-D').innerText = `${data.D.toFixed(2)}m`;
+            document.getElementById('res-Hz').innerText = `${data.h_cut.toFixed(2)}m`;
+            document.getElementById('res-Hf').innerText = `${data.h_fill.toFixed(2)}m`;
+            
+            document.getElementById('res-vCut').innerText = `${data.vCut.toLocaleString('en-US', {maximumFractionDigits:1})} m³`;
+            document.getElementById('res-vFill').innerText = `${data.vFill.toLocaleString('en-US', {maximumFractionDigits:1})} m³`;
+            document.getElementById('res-ratio').innerText = (data.vCut / data.vFill).toFixed(5);
+            document.getElementById('res-vWater').innerText = data.vWater.toLocaleString('en-US', {maximumFractionDigits:0});
+
+            // Renderizar Gráficos
+            if (state.viewMode === '3D') {
+                svgCont.innerHTML = render3D(data);
+            } else {
+                svgCont.innerHTML = render2D(data, state.viewMode);
+            }
+        }
+
+        // Renderizado Inicial
+        updateApp();
+
+    </script>
+</body>
+</html>
