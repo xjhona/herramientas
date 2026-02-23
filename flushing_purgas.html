@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Volúmenes de Flushing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        /* Ocultar flechas en input number */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-teal-700 to-cyan-700 rounded-2xl shadow-lg p-6 text-white flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-4">
+                <div class="bg-white/20 p-3 rounded-xl">
+                    <i class="ph ph-waves text-3xl text-cyan-100"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">Planificador de Flushing & Purgas</h1>
+                    <p class="text-cyan-100 text-sm mt-1">Calculadora de volúmenes de vaciado y lavado hidráulico en impulsiones.</p>
+                </div>
+            </div>
+            <div class="bg-teal-900/50 px-4 py-2 rounded-lg border border-teal-500/50 text-center">
+                <span class="block text-xs text-teal-200 uppercase font-bold tracking-wider">Volumen Total Estimado</span>
+                <span id="head-total-vol" class="text-2xl font-black text-white">-- m³</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- CONTROLES E INPUTS -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-slate-800 mb-5 flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <i class="ph ph-sliders text-cyan-600 text-xl"></i> Configuración de la Línea
+                    </h3>
+                    
+                    <div class="space-y-5">
+                        
+                        <!-- Selección de Tubería -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Material y Diámetro Comercial</label>
+                            <select id="pipeSelect" class="w-full bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block p-2.5 transition-colors">
+                                <optgroup label="PVC-O (Biorientado) - PN 12.5">
+                                    <option value="0.299">PVC-O 315 mm (D. Int ≈ 299 mm)</option>
+                                    <option value="0.337">PVC-O 355 mm (D. Int ≈ 337 mm)</option>
+                                    <option value="0.380" selected>PVC-O 400 mm (D. Int ≈ 380 mm)</option>
+                                    <option value="0.474">PVC-O 500 mm (D. Int ≈ 474 mm)</option>
+                                    <option value="0.598">PVC-O 630 mm (D. Int ≈ 598 mm)</option>
+                                </optgroup>
+                                <optgroup label="PVC-U (Tradicional) - PN 10">
+                                    <option value="0.296">PVC-U 315 mm (D. Int ≈ 296 mm)</option>
+                                    <option value="0.333">PVC-U 355 mm (D. Int ≈ 333 mm)</option>
+                                    <option value="0.375">PVC-U 400 mm (D. Int ≈ 375 mm)</option>
+                                    <option value="0.469">PVC-U 500 mm (D. Int ≈ 469 mm)</option>
+                                    <option value="0.591">PVC-U 630 mm (D. Int ≈ 591 mm)</option>
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        <!-- Caudal -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Caudal de Bombeo (x Línea)</label>
+                            <div class="relative">
+                                <input type="number" id="flowRate" value="200" step="10" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-lg font-bold rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block p-2.5 pl-4 transition-colors">
+                                <span class="absolute right-4 top-3 text-slate-400 font-bold">l/s</span>
+                            </div>
+                        </div>
+
+                        <!-- Distancia / Progresiva -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Progresiva de Purga / Distancia</label>
+                            <div class="relative">
+                                <input type="number" id="distance" value="5000" step="100" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-lg font-bold rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block p-2.5 pl-4 transition-colors">
+                                <span class="absolute right-4 top-3 text-slate-400 font-bold">metros</span>
+                            </div>
+                            <input type="range" id="distanceSlider" min="100" max="14000" value="5000" step="100" class="w-full h-2 mt-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-cyan-600">
+                        </div>
+
+                        <!-- Tiempo de Flushing -->
+                        <div class="bg-cyan-50 p-4 rounded-xl border border-cyan-100">
+                            <label class="block text-xs font-bold text-cyan-800 uppercase tracking-wide mb-1">Tiempo Extra de Flushing</label>
+                            <div class="relative">
+                                <input type="number" id="flushTime" value="15" step="5" class="w-full bg-white border border-cyan-200 text-cyan-900 text-lg font-bold rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block p-2.5 pl-4 transition-colors">
+                                <span class="absolute right-4 top-3 text-cyan-600 font-bold">minutos</span>
+                            </div>
+                            <p class="text-[10px] text-cyan-700 mt-2 leading-tight">Tiempo adicional de purga abierta <i>después</i> de haber renovado todo el volumen estático del tramo.</p>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- RESULTADOS Y KPIS -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Tarjetas Superiores (Física del Flujo) -->
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden">
+                        <i class="ph ph-arrows-out-line text-4xl text-slate-100 absolute -bottom-2 -right-2"></i>
+                        <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Diámetro Interno Real</p>
+                        <p class="text-2xl font-black text-slate-800 mt-1" id="out-id">-- mm</p>
+                        <p class="text-xs text-slate-400 mt-1">Usado para el cálculo base</p>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden">
+                        <i class="ph ph-speedometer text-4xl text-slate-100 absolute -bottom-2 -right-2"></i>
+                        <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Velocidad del Flujo</p>
+                        <p class="text-2xl font-black text-slate-800 mt-1" id="out-vel">-- m/s</p>
+                        <p class="text-xs mt-1" id="vel-status">--</p>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden md:col-span-1 col-span-2">
+                        <i class="ph ph-timer text-4xl text-slate-100 absolute -bottom-2 -right-2"></i>
+                        <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">Tiempo de Tránsito</p>
+                        <p class="text-2xl font-black text-slate-800 mt-1" id="out-transit-time">-- min</p>
+                        <p class="text-xs text-slate-400 mt-1">Para recorrer la progresiva</p>
+                    </div>
+
+                </div>
+
+                <!-- Tarjetas de Volumen -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 px-6 py-4 border-b border-slate-200">
+                        <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                            <i class="ph ph-drop text-blue-500 text-xl"></i> Desglose Volumétrico de la Maniobra
+                        </h3>
+                    </div>
+                    
+                    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+                        <!-- Conector visual central (solo desktop) -->
+                        <div class="hidden md:block absolute left-1/2 top-10 bottom-10 w-px bg-slate-200">
+                            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-full p-2 border border-slate-200 text-slate-400">
+                                <i class="ph ph-plus font-bold"></i>
+                            </div>
+                        </div>
+
+                        <!-- Volumen Estático -->
+                        <div class="bg-blue-50/50 p-5 rounded-xl border border-blue-100 relative">
+                            <div class="absolute top-4 right-4 text-blue-200"><i class="ph ph-cylinder text-4xl"></i></div>
+                            <span class="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-[10px] font-bold uppercase rounded mb-2">Paso 1: Renovación</span>
+                            <h4 class="text-sm font-bold text-slate-700">Volumen Estático (Tubería)</h4>
+                            <p class="text-3xl font-black text-blue-700 mt-2" id="out-vol-static">-- m³</p>
+                            <p class="text-xs text-slate-500 mt-2 leading-relaxed">Agua estancada que cabe físicamente en el tramo de la tubería. Es lo mínimo a purgar.</p>
+                        </div>
+
+                        <!-- Volumen Dinámico -->
+                        <div class="bg-cyan-50/50 p-5 rounded-xl border border-cyan-100 relative">
+                            <div class="absolute top-4 right-4 text-cyan-200"><i class="ph ph-waves text-4xl"></i></div>
+                            <span class="inline-block px-2 py-1 bg-cyan-100 text-cyan-700 text-[10px] font-bold uppercase rounded mb-2">Paso 2: Lavado Extra</span>
+                            <h4 class="text-sm font-bold text-slate-700">Volumen Dinámico (Flushing)</h4>
+                            <p class="text-3xl font-black text-cyan-700 mt-2" id="out-vol-flush">-- m³</p>
+                            <p class="text-xs text-slate-500 mt-2 leading-relaxed">Agua limpia inyectada para barrer sedimentos según el tiempo de flushing asignado.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Totalizador -->
+                    <div class="bg-slate-800 text-white p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div>
+                            <p class="text-slate-400 text-sm font-bold uppercase tracking-wide">Volumen Total Drenado</p>
+                            <p class="text-xs text-slate-400 mt-1">Asegurar capacidad de poza o dren natural para esta cantidad.</p>
+                        </div>
+                        <div class="text-right flex items-center gap-4">
+                            <div class="text-right">
+                                <p class="text-xs text-slate-400 uppercase">Tiempo Total Válvula Abierta</p>
+                                <p class="text-lg font-bold text-teal-400" id="out-total-time">-- min</p>
+                            </div>
+                            <div class="h-10 w-px bg-slate-600"></div>
+                            <div class="text-right">
+                                <p class="text-xs text-slate-400 uppercase">Total m³</p>
+                                <p class="text-4xl font-black text-white" id="out-vol-total">--</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Firma sutil -->
+        <div class="text-center mt-2 mb-2">
+            <p class="text-[10px] text-slate-400 font-bold tracking-widest uppercase opacity-50 hover:opacity-100 hover:text-cyan-700 transition-all duration-300 cursor-default">
+                vibe coded by jchilet
+            </p>
+        </div>
+
+    </div>
+
+    <script>
+        // Elementos UI de Entrada
+        const pipeSelect = document.getElementById('pipeSelect');
+        const flowRateInput = document.getElementById('flowRate');
+        const distanceInput = document.getElementById('distance');
+        const distanceSlider = document.getElementById('distanceSlider');
+        const flushTimeInput = document.getElementById('flushTime');
+
+        // Elementos UI de Salida
+        const outId = document.getElementById('out-id');
+        const outVel = document.getElementById('out-vel');
+        const velStatus = document.getElementById('vel-status');
+        const outTransitTime = document.getElementById('out-transit-time');
+        
+        const outVolStatic = document.getElementById('out-vol-static');
+        const outVolFlush = document.getElementById('out-vol-flush');
+        const outVolTotal = document.getElementById('out-vol-total');
+        const headTotalVol = document.getElementById('head-total-vol');
+        const outTotalTime = document.getElementById('out-total-time');
+
+        // Sincronizar input numérico y slider de distancia
+        distanceInput.addEventListener('input', (e) => {
+            distanceSlider.value = e.target.value;
+            calcular();
+        });
+        distanceSlider.addEventListener('input', (e) => {
+            distanceInput.value = e.target.value;
+            calcular();
+        });
+
+        // Eventos para el resto de inputs
+        [pipeSelect, flowRateInput, flushTimeInput].forEach(el => {
+            el.addEventListener('input', calcular);
+        });
+
+        function calcular() {
+            // 1. Capturar valores
+            const D_int_m = parseFloat(pipeSelect.value); // En metros
+            const Q_lps = parseFloat(flowRateInput.value) || 0;
+            const dist_m = parseFloat(distanceInput.value) || 0;
+            const flush_min = parseFloat(flushTimeInput.value) || 0;
+
+            const Q_m3s = Q_lps / 1000;
+
+            // 2. Cálculos Físicos
+            // Área (m2)
+            const area = Math.PI * Math.pow(D_int_m / 2, 2);
+            
+            // Velocidad (m/s)
+            let vel = 0;
+            if (area > 0) vel = Q_m3s / area;
+
+            // Volumen Estático (m3) = Área x Longitud
+            const vol_static = area * dist_m;
+
+            // Tiempo de Tránsito (minutos)
+            let transit_min = 0;
+            if (vel > 0) transit_min = (dist_m / vel) / 60;
+
+            // Volumen Dinámico de Flushing (m3)
+            // Q(m3/s) * tiempo(s)
+            const vol_flush = Q_m3s * (flush_min * 60);
+
+            // Totales
+            const total_vol = vol_static + vol_flush;
+            const total_time = transit_min + flush_min;
+
+            // 3. Actualizar UI
+            outId.innerText = (D_int_m * 1000).toFixed(0) + ' mm';
+            outVel.innerText = vel.toFixed(2) + ' m/s';
+            
+            // Estado de la velocidad (Evaluador visual)
+            if (vel < 1.0) {
+                velStatus.innerHTML = '<span class="text-red-500 font-bold"><i class="ph ph-warning"></i> Baja (Sedimenta)</span>';
+            } else if (vel <= 1.8) {
+                velStatus.innerHTML = '<span class="text-green-500 font-bold"><i class="ph ph-check-circle"></i> Óptima</span>';
+            } else {
+                velStatus.innerHTML = '<span class="text-orange-500 font-bold"><i class="ph ph-warning-circle"></i> Alta (Abrasión/Ariete)</span>';
+            }
+
+            outTransitTime.innerText = transit_min.toFixed(1) + ' min';
+            
+            outVolStatic.innerText = vol_static.toFixed(1) + ' m³';
+            outVolFlush.innerText = vol_flush.toFixed(1) + ' m³';
+            
+            const totalStr = total_vol.toLocaleString('en-US', {maximumFractionDigits: 1});
+            outVolTotal.innerText = totalStr;
+            headTotalVol.innerText = totalStr + ' m³';
+            
+            outTotalTime.innerText = total_time.toFixed(1) + ' min';
+        }
+
+        // Ejecutar cálculo inicial al cargar
+        calcular();
+
+    </script>
+</body>
+</html>
