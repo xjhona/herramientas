@@ -36,6 +36,8 @@
         const IconSettings = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
         const IconFileText = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>;
         const IconCalculator = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="14"></line><line x1="8" y1="14" x2="8" y2="14"></line><line x1="12" y1="14" x2="12" y2="14"></line><line x1="16" y1="18" x2="16" y2="18"></line><line x1="8" y1="18" x2="8" y2="18"></line><line x1="12" y1="18" x2="12" y2="18"></line></svg>;
+        const IconZoomIn = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>;
+        const IconZoomOut = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>;
 
         const App = () => {
             // --- Estado ---
@@ -59,6 +61,8 @@
                 trenchDepth: 1.2   // metros
             });
             
+            const [zoom, setZoom] = useState(1);
+
             const [results, setResults] = useState({
                 widthCm: 0,
                 volExcavation: 0,
@@ -152,75 +156,84 @@
                     return { ...pipe, cx, radius };
                 });
 
-                const svgWidth = Math.max(800, results.widthCm * scaleFactor + (margin * 2));
-                const svgHeight = 350;
                 const toSvg = (cm) => cm * scaleFactor;
                 
+                // Altura dinámica: se ajusta al tubo más grande para no quedar cortado
+                const maxDiameterCm = selectedPipes.length > 0 ? Math.max(...selectedPipes.map(p => p.val / 10)) : 0;
+                const requiredHeightPx = toSvg(maxDiameterCm) + toSvg(config.sandBed) + 120;
+                
+                const baseWidth = Math.max(800, results.widthCm * scaleFactor + (margin * 2));
+                const baseHeight = Math.max(350, requiredHeightPx);
+
+                // Aplicación del Zoom
+                const svgWidth = baseWidth * zoom;
+                const svgHeight = baseHeight * zoom;
+                
                 // Nivel del suelo (fondo de la zanja)
-                const groundY = svgHeight - 40; 
+                const groundY = baseHeight - 40; 
                 // Altura de la cama de arena en px
                 const sandHeightPx = toSvg(config.sandBed);
                 // Nivel superior de la cama de arena (donde se apoyan los tubos)
                 const sandTopY = groundY - sandHeightPx;
 
                 return (
-                    <div className="overflow-x-auto border rounded-lg bg-sky-50 p-4 shadow-inner">
-                        <svg width={svgWidth} height={svgHeight} className="mx-auto bg-white/50 rounded">
-                            <defs>
-                                <pattern id="soilPattern" patternUnits="userSpaceOnUse" width="10" height="10">
-                                    <path d="M-1,1 l2,-2 M0,10 l10,-10 M9,11 l2,-2" stroke="#d4b483" strokeWidth="1" />
-                                </pattern>
-                                <pattern id="sandPattern" patternUnits="userSpaceOnUse" width="4" height="4">
-                                    <rect width="4" height="4" fill="#fef3c7" />
-                                    <circle cx="2" cy="2" r="0.5" fill="#d97706" opacity="0.4" />
-                                </pattern>
-                                <marker id="arrow" markerWidth="10" markerHeight="10" refX="0" refY="3" orient="auto" markerUnits="strokeWidth">
-                                    <path d="M0,0 L0,6 L9,3 z" fill="#2563eb" />
-                                </marker>
-                            </defs>
-                            
-                            {/* Fondo de Tierra General */}
-                            <rect x="0" y="50" width={svgWidth} height={svgHeight} fill="url(#soilPattern)" opacity="0.2" />
+                    <div className="overflow-x-auto overflow-y-auto max-h-[600px] border rounded-lg bg-sky-50 p-4 shadow-inner custom-scrollbar">
+                        <svg width={svgWidth} height={svgHeight} className="mx-auto bg-white/50 rounded origin-top-left transition-all duration-200 ease-in-out">
+                            <g transform={`scale(${zoom})`}>
+                                <defs>
+                                    <pattern id="soilPattern" patternUnits="userSpaceOnUse" width="10" height="10">
+                                        <path d="M-1,1 l2,-2 M0,10 l10,-10 M9,11 l2,-2" stroke="#d4b483" strokeWidth="1" />
+                                    </pattern>
+                                    <pattern id="sandPattern" patternUnits="userSpaceOnUse" width="4" height="4">
+                                        <rect width="4" height="4" fill="#fef3c7" />
+                                        <circle cx="2" cy="2" r="0.5" fill="#d97706" opacity="0.4" />
+                                    </pattern>
+                                    <marker id="arrow" markerWidth="10" markerHeight="10" refX="0" refY="3" orient="auto" markerUnits="strokeWidth">
+                                        <path d="M0,0 L0,6 L9,3 z" fill="#2563eb" />
+                                    </marker>
+                                </defs>
+                                
+                                {/* Fondo de Tierra General */}
+                                <rect x="0" y="50" width={baseWidth} height={baseHeight} fill="url(#soilPattern)" opacity="0.2" />
 
-                            {/* Paredes Zanja */}
-                            <line x1={margin} y1="50" x2={margin} y2={svgHeight} stroke="#8B4513" strokeWidth="3" />
-                            <line x1={margin + toSvg(results.widthCm)} y1="50" x2={margin + toSvg(results.widthCm)} y2={svgHeight} stroke="#8B4513" strokeWidth="3" />
+                                {/* Paredes Zanja */}
+                                <line x1={margin} y1="50" x2={margin} y2={baseHeight} stroke="#8B4513" strokeWidth="3" />
+                                <line x1={margin + toSvg(results.widthCm)} y1="50" x2={margin + toSvg(results.widthCm)} y2={baseHeight} stroke="#8B4513" strokeWidth="3" />
 
-                            {/* Cama de Arena */}
-                            <rect 
-                                x={margin} 
-                                y={sandTopY} 
-                                width={toSvg(results.widthCm)} 
-                                height={sandHeightPx} 
-                                fill="url(#sandPattern)" 
-                                stroke="#d97706"
-                                strokeWidth="0.5"
-                            />
-                            {/* Etiqueta Cama Arena */}
-                            <text x={margin - 5} y={groundY - (sandHeightPx/2)} textAnchor="end" fontSize="10" fill="#d97706">Arena ({config.sandBed}cm)</text>
+                                {/* Cama de Arena */}
+                                <rect 
+                                    x={margin} 
+                                    y={sandTopY} 
+                                    width={toSvg(results.widthCm)} 
+                                    height={sandHeightPx} 
+                                    fill="url(#sandPattern)" 
+                                    stroke="#d97706"
+                                    strokeWidth="0.5"
+                                />
+                                {/* Etiqueta Cama Arena */}
+                                <text x={margin - 5} y={groundY - (sandHeightPx/2)} textAnchor="end" dominantBaseline="middle" fontSize="10" fill="#d97706">Arena ({config.sandBed}cm)</text>
 
-                            {/* Suelo Base (Debajo de arena) */}
-                            <rect x={margin} y={groundY} width={toSvg(results.widthCm)} height="40" fill="#e2e8f0" />
+                                {/* Suelo Base (Debajo de arena) */}
+                                <rect x={margin} y={groundY} width={toSvg(results.widthCm)} height="40" fill="#e2e8f0" />
 
-                            {/* Cota Ancho Total */}
-                            <line x1={margin} y1="30" x2={margin + toSvg(results.widthCm)} y2="30" stroke="#2563eb" strokeWidth="2" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
-                            <text x={margin + toSvg(results.widthCm)/2} y="20" textAnchor="middle" fill="#2563eb" fontWeight="bold">Ancho: {results.widthCm.toFixed(1)} cm</text>
+                                {/* Cota Ancho Total */}
+                                <line x1={margin} y1="30" x2={margin + toSvg(results.widthCm)} y2="30" stroke="#2563eb" strokeWidth="2" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
+                                <text x={margin + toSvg(results.widthCm)/2} y="20" textAnchor="middle" fill="#2563eb" fontWeight="bold">Ancho: {results.widthCm.toFixed(1)} cm</text>
 
-                            {/* Tuberías */}
-                            {pipePositions.map((p) => (
-                                <g key={p.id}>
-                                    {/* El tubo se dibuja restando el radio desde la superficie de la arena (sandTopY) */}
-                                    <circle 
-                                        cx={margin + toSvg(p.cx)} 
-                                        cy={sandTopY - toSvg(p.radius)} 
-                                        r={toSvg(p.radius)} 
-                                        fill="#f1f5f9" stroke="#334155" strokeWidth="2" 
-                                    />
-                                    <text x={margin + toSvg(p.cx)} y={sandTopY - toSvg(p.radius)} textAnchor="middle" dominantBaseline="middle" fontSize="10" fill="#334155" fontWeight="bold">{p.label}</text>
-                                    {/* Texto Diámetro debajo de la cama de arena para no saturar */}
-                                    <text x={margin + toSvg(p.cx)} y={sandTopY - toSvg(p.radius) * 2 - 10} textAnchor="middle" fontSize="10" fill="#64748b">Ø{p.val}</text>
-                                </g>
-                            ))}
+                                {/* Tuberías */}
+                                {pipePositions.map((p) => (
+                                    <g key={p.id}>
+                                        <circle 
+                                            cx={margin + toSvg(p.cx)} 
+                                            cy={sandTopY - toSvg(p.radius)} 
+                                            r={toSvg(p.radius)} 
+                                            fill="#f1f5f9" stroke="#334155" strokeWidth="2" 
+                                        />
+                                        <text x={margin + toSvg(p.cx)} y={sandTopY - toSvg(p.radius)} textAnchor="middle" dominantBaseline="middle" fontSize="10" fill="#334155" fontWeight="bold">{p.label}</text>
+                                        <text x={margin + toSvg(p.cx)} y={sandTopY - toSvg(p.radius) * 2 - 10} textAnchor="middle" fontSize="10" fill="#64748b">Ø{p.val}</text>
+                                    </g>
+                                ))}
+                            </g>
                         </svg>
                     </div>
                 );
@@ -323,11 +336,29 @@
                                     <div className="mb-6">
                                         <div className="flex justify-between items-center mb-2">
                                             <h3 className="font-bold text-slate-700">Esquema de Sección</h3>
-                                            {selectedPipes.length > 0 && 
-                                                <button onClick={() => setSelectedPipes([])} className="text-xs text-red-500 hover:bg-red-50 px-3 py-1 rounded-full flex items-center gap-1 border border-red-100" data-html2canvas-ignore="true">
-                                                    <IconTrash /> Limpiar
-                                                </button>
-                                            }
+                                            <div className="flex gap-2" data-html2canvas-ignore="true">
+                                                {/* Controles de Zoom */}
+                                                <div className="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200">
+                                                    <button onClick={() => setZoom(z => Math.max(z - 0.2, 0.2))} className="p-1 hover:bg-white rounded text-slate-600 shadow-sm transition-colors" title="Alejar">
+                                                        <IconZoomOut />
+                                                    </button>
+                                                    <span className="text-xs font-mono font-bold w-12 text-center text-slate-500 select-none">
+                                                        {Math.round(zoom * 100)}%
+                                                    </span>
+                                                    <button onClick={() => setZoom(z => Math.min(z + 0.2, 3))} className="p-1 hover:bg-white rounded text-slate-600 shadow-sm transition-colors" title="Acercar">
+                                                        <IconZoomIn />
+                                                    </button>
+                                                    <button onClick={() => setZoom(1)} className="p-1 hover:bg-white rounded text-slate-600 shadow-sm ml-1 border-l border-slate-200 transition-colors text-xs font-bold px-2" title="Restablecer">
+                                                        1:1
+                                                    </button>
+                                                </div>
+
+                                                {selectedPipes.length > 0 && 
+                                                    <button onClick={() => setSelectedPipes([])} className="text-xs text-red-500 hover:bg-red-50 px-3 py-1 rounded-lg flex items-center gap-1 border border-red-100 transition-colors">
+                                                        <IconTrash /> Limpiar
+                                                    </button>
+                                                }
+                                            </div>
                                         </div>
                                         <TrenchVisualizer />
                                     </div>
