@@ -16,6 +16,10 @@
         input[type=range] { -webkit-appearance: none; background: transparent; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #7c3aed; cursor: pointer; margin-top: -6px; }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #e2e8f0; border-radius: 2px; }
+        
+        /* Toggle Switch CSS */
+        .toggle-checkbox:checked { right: 0; border-color: #10b981; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #10b981; }
     </style>
 </head>
 <body>
@@ -50,15 +54,17 @@
                 largoLote: 100,
                 anchoLote: 100,
                 areaTotal: 1,
-                hilerasPorBloque: 8
+                hilerasPorBloque: 8,
+                frecuenciaCortinas: 4 
             });
 
+            // Nuevo estado para controlar si arrancamos con 4 hileras iniciales
+            const [simularBorde, setSimularBorde] = useState(true);
             const [zoom, setZoom] = useState(35);
             const canvasRef = useRef(null);
             const containerRef = useRef(null);
-            const appRef = useRef(null);
 
-            // Cálculos
+            // Cálculos Agronómicos
             const stats = useMemo(() => {
                 const hilerasBloque = Math.max(1, params.hilerasPorBloque);
                 const dHileras = Math.max(0.1, params.distHileras);
@@ -106,17 +112,14 @@
                 const width = rect.width;
                 const height = rect.height;
 
-                // Limpiar
+                // Limpiar y Fondo
                 ctx.clearRect(0, 0, width, height);
-                
-                // Fondo
                 const gradient = ctx.createLinearGradient(0, 0, 0, height);
                 gradient.addColorStop(0, '#f0f4f8'); 
                 gradient.addColorStop(1, '#ffffff');
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, 0, width, height);
 
-                // --- PROTECCIÓN CRÍTICA ---
                 if (params.distPlantas < 0.1 || params.distHileras < 0.1) {
                     ctx.fillStyle = "#94a3b8";
                     ctx.font = "14px sans-serif";
@@ -143,15 +146,12 @@
 
                     if (type === 'pot') {
                         ctx.scale(elementScale, elementScale);
-                        // Sombra
                         ctx.fillStyle = 'rgba(0,0,0,0.15)';
                         ctx.beginPath(); ctx.ellipse(0, 4, 8, 4, 0, 0, 2 * Math.PI); ctx.fill();
-                        // Maceta
                         ctx.fillStyle = '#5D4037'; 
                         ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.lineTo(4.5, 9); ctx.lineTo(-4.5, 9); ctx.closePath(); ctx.fill();
                         ctx.fillStyle = '#3E2723';
                         ctx.beginPath(); ctx.ellipse(0, 0, 6, 2.5, 0, 0, 2 * Math.PI); ctx.fill();
-                        // Arbusto
                         ctx.fillStyle = '#1B5E20'; 
                         ctx.beginPath(); ctx.arc(-3, -6, 6, 0, 2 * Math.PI); ctx.fill();
                         ctx.beginPath(); ctx.arc(3, -6, 6, 0, 2 * Math.PI); ctx.fill();
@@ -160,7 +160,6 @@
                         ctx.beginPath(); ctx.arc(-2, -8, 5, 0, 2 * Math.PI); ctx.fill();
                         ctx.beginPath(); ctx.arc(2, -8, 5, 0, 2 * Math.PI); ctx.fill();
                         ctx.beginPath(); ctx.arc(0, -11, 5, 0, 2 * Math.PI); ctx.fill();
-                        // Frutos
                         ctx.fillStyle = '#3F51B5'; 
                         const berries = [{x:-2, y:-6}, {x:2, y:-10}, {x:4, y:-5}, {x:-3, y:-11}, {x:0, y:-7}];
                         berries.forEach(b => {
@@ -172,17 +171,13 @@
                     } else if (type === 'mesh') {
                         ctx.scale(elementScale, elementScale);
                         const postHeight = 45;
-                        // Sombra
                         ctx.fillStyle = 'rgba(0,0,0,0.2)';
                         ctx.beginPath(); ctx.ellipse(2, 0, 4, 2, 0, 0, 2 * Math.PI); ctx.fill();
-                        // Poste
                         ctx.fillStyle = '#607D8B'; 
                         ctx.fillRect(-2, -postHeight, 4, postHeight);
-                        // Malla
                         const nextPostY = 25; const nextPostX = -14; 
                         ctx.fillStyle = 'rgba(30, 30, 30, 0.6)'; 
                         ctx.beginPath(); ctx.moveTo(0, -postHeight); ctx.lineTo(0, 0); ctx.lineTo(nextPostX, nextPostY); ctx.lineTo(nextPostX, nextPostY - postHeight); ctx.closePath(); ctx.fill();
-                        // Red
                         ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
                         ctx.beginPath();
                         ctx.moveTo(0, -postHeight); ctx.lineTo(nextPostX, nextPostY - 20);
@@ -195,10 +190,10 @@
                     ctx.restore();
                 };
 
-                const viewWidthMeters = 24 * (35/zoom); 
+                const viewWidthMeters = 30 * (35/zoom); // Ensanchamos la vista un poco para ver bien los bloques
                 const viewDepthMeters = 24 * (35/zoom);
 
-                // Cortina
+                // 1. Dibujar Cortina Perimetral
                 for (let y = 0; y < viewDepthMeters; y += 2) {
                     drawElement(-params.distCortina, y, 'mesh');
                 }
@@ -206,26 +201,47 @@
                 const labelY = centerY + isoY(-params.distCortina * scale, 0) - (60 * (scale/35));
                 ctx.fillStyle = '#333';
                 ctx.font = `bold ${Math.max(10, 12 * (scale/35))}px sans-serif`;
-                ctx.fillText("Malla Cortaviento", labelX - 40, labelY);
+                ctx.fillText("Malla Perimetral", labelX - 40, labelY);
 
-                // Plantas y Calles
+                // 2. Dibujar Plantas, Calles y Cortinas Internas
                 let currentX = 0;
-                let hileraCount = 0;
+                
+                // LÓGICA DE INICIO MAGISTRAL:
+                // Si 'simularBorde' está activo, forzamos al contador a empezar justo en el centro del bloque
+                // Si el bloque es 8, empieza en 5. Dibujará 5, 6, 7, 8 (4 hileras) y luego lanzará la calle.
+                let hileraCount = simularBorde ? Math.floor(params.hilerasPorBloque / 2) + 1 : 1;
 
                 while (currentX < viewWidthMeters) {
-                    if (hileraCount > 0 && hileraCount % params.hilerasPorBloque === 0) {
-                        const streetStartX = currentX - (params.distHileras/2);
-                        const streetCenterX = streetStartX + (params.anchoCalle/2);
-                        const p1 = { x: streetCenterX - params.anchoCalle/2, y: 0 };
-                        const p2 = { x: streetCenterX + params.anchoCalle/2, y: 0 };
-                        const p3 = { x: streetCenterX + params.anchoCalle/2, y: viewDepthMeters };
-                        const p4 = { x: streetCenterX - params.anchoCalle/2, y: viewDepthMeters };
+                    
+                    // A. Dibujar la hilera de plantas actual
+                    for (let y = 0; y < viewDepthMeters; y += params.distPlantas) {
+                        drawElement(currentX, y, 'pot');
+                    }
+
+                    let stepToNextRow = params.distHileras;
+
+                    // B. Evaluar reglas topológicas
+                    const isStreet = (hileraCount % params.hilerasPorBloque === 0);
+                    // IMPORTANTE: La cortina NO se dibuja si en ese mismo lugar toca dibujar una calle
+                    const isWindbreak = !isStreet && (params.frecuenciaCortinas > 0 && hileraCount % params.frecuenciaCortinas === 0);
+
+                    // C. Aplicar reglas visuales hacia la siguiente hilera
+                    if (isStreet) {
+                        stepToNextRow = params.anchoCalle; 
+                        
+                        const streetWidthVisual = stepToNextRow - 1; 
+                        const streetCenterX = currentX + stepToNextRow/2;
+                        
+                        const s_p1 = { x: streetCenterX - streetWidthVisual/2, y: 0 };
+                        const s_p2 = { x: streetCenterX + streetWidthVisual/2, y: 0 };
+                        const s_p3 = { x: streetCenterX + streetWidthVisual/2, y: viewDepthMeters };
+                        const s_p4 = { x: streetCenterX - streetWidthVisual/2, y: viewDepthMeters };
 
                         ctx.beginPath();
-                        ctx.moveTo(centerX + isoX(p1.x*scale, p1.y*scale), centerY + isoY(p1.x*scale, p1.y*scale));
-                        ctx.lineTo(centerX + isoX(p2.x*scale, p2.y*scale), centerY + isoY(p2.x*scale, p2.y*scale));
-                        ctx.lineTo(centerX + isoX(p3.x*scale, p3.y*scale), centerY + isoY(p3.x*scale, p3.y*scale));
-                        ctx.lineTo(centerX + isoX(p4.x*scale, p4.y*scale), centerY + isoY(p4.x*scale, p4.y*scale));
+                        ctx.moveTo(centerX + isoX(s_p1.x*scale, s_p1.y*scale), centerY + isoY(s_p1.x*scale, s_p1.y*scale));
+                        ctx.lineTo(centerX + isoX(s_p2.x*scale, s_p2.y*scale), centerY + isoY(s_p2.x*scale, s_p2.y*scale));
+                        ctx.lineTo(centerX + isoX(s_p3.x*scale, s_p3.y*scale), centerY + isoY(s_p3.x*scale, s_p3.y*scale));
+                        ctx.lineTo(centerX + isoX(s_p4.x*scale, s_p4.y*scale), centerY + isoY(s_p4.x*scale, s_p4.y*scale));
                         ctx.closePath();
                         ctx.fillStyle = 'rgba(210, 180, 140, 0.3)'; ctx.fill();
                         ctx.strokeStyle = 'rgba(210, 180, 140, 0.8)'; ctx.stroke();
@@ -235,17 +251,26 @@
                             const sY = centerY + isoY(streetCenterX * scale, viewDepthMeters/2 * scale);
                             ctx.fillStyle = '#8D6E63';
                             ctx.font = `italic ${Math.max(9, 11 * (scale/35))}px sans-serif`;
-                            ctx.fillText(`Calle`, sX - 20, sY);
+                            ctx.fillText(`Calle Principal`, sX - 30, sY);
                             ctx.fillText(`(${params.anchoCalle}m)`, sX - 15, sY + 12);
                         }
-                        currentX += params.anchoCalle - params.distHileras;
-                        hileraCount = 0;
-                    } else {
-                        for (let y = 0; y < viewDepthMeters; y += params.distPlantas) {
-                            drawElement(currentX, y, 'pot');
+                    } else if (isWindbreak) {
+                        // Cortina interna dibujada exactamente en medio de las hileras de macetas
+                        const cortinaX = currentX + stepToNextRow/2;
+                        for (let y = 0; y < viewDepthMeters; y += 2) {
+                            drawElement(cortinaX, y, 'mesh');
+                        }
+                        
+                        if (cortinaX < viewWidthMeters) {
+                            const cX = centerX + isoX(cortinaX * scale, viewDepthMeters/2 * scale);
+                            const cY = centerY + isoY(cortinaX * scale, viewDepthMeters/2 * scale);
+                            ctx.fillStyle = '#1B5E20';
+                            ctx.font = `bold ${Math.max(9, 11 * (scale/35))}px sans-serif`;
+                            ctx.fillText(`Cortina Central`, cX - 15, cY - 20);
                         }
                     }
-                    currentX += params.distHileras;
+
+                    currentX += stepToNextRow;
                     hileraCount++;
                 }
 
@@ -269,7 +294,7 @@
             useEffect(() => {
                 const timeoutId = setTimeout(() => draw(), 50);
                 return () => clearTimeout(timeoutId);
-            }, [params, zoom]);
+            }, [params, zoom, simularBorde]);
 
             useEffect(() => {
                 const handleResize = () => window.requestAnimationFrame(draw);
@@ -279,7 +304,7 @@
             }, []);
 
             return (
-                <div ref={appRef} className="flex flex-col h-full bg-slate-50 text-slate-800">
+                <div className="flex flex-col h-full bg-slate-50 text-slate-800">
                     {/* Header Resumen */}
                     <div className="bg-white p-4 shadow-sm border-b border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-4 flex-shrink-0">
                         <div className="flex items-center space-x-3 p-3 bg-purple-50 rounded-lg border border-purple-100">
@@ -300,7 +325,7 @@
                             <div className="flex items-center space-x-3">
                                 <div className="bg-blue-600 text-white p-2 rounded-full"><MaximizeIcon /></div>
                                 <div>
-                                    <p className="text-xs text-blue-800 font-semibold uppercase">Distancia entre hilera promedio</p>
+                                    <p className="text-xs text-blue-800 font-semibold uppercase">Ancho Promedio</p>
                                     <p className="text-xl md:text-2xl font-bold text-blue-900">{stats.distPromedioHileras}m</p>
                                 </div>
                             </div>
@@ -336,6 +361,23 @@
                                 {/* Grupo 2 */}
                                 <div className="space-y-4">
                                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b pb-1">Estructura del Lote</h3>
+                                    
+                                    {/* Toggle de Visualización de Borde */}
+                                    <div className="bg-slate-100 p-3 rounded-lg border border-slate-200 mb-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-sm font-semibold text-slate-700 cursor-pointer" htmlFor="toggleBorde">
+                                                Visualizar Borde del Lote
+                                            </label>
+                                            <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                                <input type="checkbox" name="toggle" id="toggleBorde" checked={simularBorde} onChange={() => setSimularBorde(!simularBorde)} className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer z-10"/>
+                                                <label htmlFor="toggleBorde" className="toggle-label block overflow-hidden h-5 rounded-full bg-slate-300 cursor-pointer"></label>
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 mt-1 leading-tight">
+                                            {simularBorde ? "Arranca con 4 hileras, luego calle, luego 8 hileras (Módulo completo)." : "Arranca desde el principio del módulo (8 hileras completas)."}
+                                        </p>
+                                    </div>
+
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-1">
                                             <label className="text-xs font-medium text-slate-600">Cortina (m)</label>
@@ -358,6 +400,13 @@
                                             <span>Cada {params.hilerasPorBloque} hileras</span>
                                         </div>
                                         <input type="range" name="hilerasPorBloque" min="2" max="20" step="1" value={params.hilerasPorBloque} onChange={handleChange} className="w-full h-2 bg-slate-200 rounded-lg cursor-pointer accent-orange-500" />
+                                    </div>
+                                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                                        <label className="text-sm font-medium text-slate-700">Frecuencia Cortina Interna</label>
+                                        <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                                            <span>{params.frecuenciaCortinas === 0 ? "Solo perimetral" : `Cada ${params.frecuenciaCortinas} hileras`}</span>
+                                        </div>
+                                        <input type="range" name="frecuenciaCortinas" min="0" max="50" step="1" value={params.frecuenciaCortinas} onChange={handleChange} className="w-full h-2 bg-slate-200 rounded-lg cursor-pointer accent-green-600" />
                                     </div>
                                 </div>
                                 {/* Grupo 3 */}
@@ -392,7 +441,7 @@
                                 </button>
                             </div>
                             
-                            <canvas ref={canvasRef} className="block shadow-md bg-white" style={{ maxWidth: '100%', maxHeight: '100%' }} />
+                            <canvas ref={canvasRef} className="block shadow-md bg-white cursor-move" style={{ maxWidth: '100%', maxHeight: '100%' }} />
 
                             <div className="absolute bottom-6 right-6 bg-white/90 backdrop-blur p-3 rounded-lg shadow-lg border border-slate-200 text-xs space-y-2 pointer-events-none z-10">
                                 <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#1B5E20]"></div><span>Arándano en Maceta</span></div>
