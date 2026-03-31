@@ -16,10 +16,6 @@
         input[type=range] { -webkit-appearance: none; background: transparent; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #7c3aed; cursor: pointer; margin-top: -6px; }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #e2e8f0; border-radius: 2px; }
-        
-        /* Toggle Switch CSS */
-        .toggle-checkbox:checked { right: 0; border-color: #10b981; }
-        .toggle-checkbox:checked + .toggle-label { background-color: #10b981; }
     </style>
 </head>
 <body>
@@ -54,12 +50,11 @@
                 largoLote: 100,
                 anchoLote: 100,
                 areaTotal: 1,
+                hilerasIniciales: 4, // <-- NUEVO: Hileras en el primer bloque
                 hilerasPorBloque: 8,
                 frecuenciaCortinas: 4 
             });
 
-            // Nuevo estado para controlar si arrancamos con 4 hileras iniciales
-            const [simularBorde, setSimularBorde] = useState(true);
             const [zoom, setZoom] = useState(35);
             const canvasRef = useRef(null);
             const containerRef = useRef(null);
@@ -70,6 +65,7 @@
                 const dHileras = Math.max(0.1, params.distHileras);
                 const dPlantas = Math.max(0.1, params.distPlantas);
 
+                // La densidad se calcula en base al bloque principal (el que más se repite en una Hectárea)
                 const espaciosEntreHileras = hilerasBloque - 1;
                 const anchoTotalBloque = (dHileras * espaciosEntreHileras) + params.anchoCalle;
                 const distPromedioHileras = anchoTotalBloque / hilerasBloque;
@@ -190,7 +186,7 @@
                     ctx.restore();
                 };
 
-                const viewWidthMeters = 30 * (35/zoom); // Ensanchamos la vista un poco para ver bien los bloques
+                const viewWidthMeters = 30 * (35/zoom); 
                 const viewDepthMeters = 24 * (35/zoom);
 
                 // 1. Dibujar Cortina Perimetral
@@ -206,10 +202,9 @@
                 // 2. Dibujar Plantas, Calles y Cortinas Internas
                 let currentX = 0;
                 
-                // LÓGICA DE INICIO MAGISTRAL:
-                // Si 'simularBorde' está activo, forzamos al contador a empezar justo en el centro del bloque
-                // Si el bloque es 8, empieza en 5. Dibujará 5, 6, 7, 8 (4 hileras) y luego lanzará la calle.
-                let hileraCount = simularBorde ? Math.floor(params.hilerasPorBloque / 2) + 1 : 1;
+                // LÓGICA REESTRUCTURADA: Contadores limpios
+                let rowsSinceLastStreet = 0;
+                let isFirstBlock = true; // Permite saber si estamos en el "borde"
 
                 while (currentX < viewWidthMeters) {
                     
@@ -219,11 +214,14 @@
                     }
 
                     let stepToNextRow = params.distHileras;
+                    rowsSinceLastStreet++; // Avanzamos el contador de hileras
+
+                    // Determinamos cuántas hileras tiene el bloque actual
+                    let targetRows = isFirstBlock ? params.hilerasIniciales : params.hilerasPorBloque;
 
                     // B. Evaluar reglas topológicas
-                    const isStreet = (hileraCount % params.hilerasPorBloque === 0);
-                    // IMPORTANTE: La cortina NO se dibuja si en ese mismo lugar toca dibujar una calle
-                    const isWindbreak = !isStreet && (params.frecuenciaCortinas > 0 && hileraCount % params.frecuenciaCortinas === 0);
+                    const isStreet = (rowsSinceLastStreet === targetRows);
+                    const isWindbreak = !isStreet && (params.frecuenciaCortinas > 0 && rowsSinceLastStreet % params.frecuenciaCortinas === 0);
 
                     // C. Aplicar reglas visuales hacia la siguiente hilera
                     if (isStreet) {
@@ -254,6 +252,11 @@
                             ctx.fillText(`Calle Principal`, sX - 30, sY);
                             ctx.fillText(`(${params.anchoCalle}m)`, sX - 15, sY + 12);
                         }
+                        
+                        // Reseteamos parámetros porque empezamos un nuevo bloque regular
+                        rowsSinceLastStreet = 0;
+                        isFirstBlock = false;
+
                     } else if (isWindbreak) {
                         // Cortina interna dibujada exactamente en medio de las hileras de macetas
                         const cortinaX = currentX + stepToNextRow/2;
@@ -271,7 +274,6 @@
                     }
 
                     currentX += stepToNextRow;
-                    hileraCount++;
                 }
 
                 // Cotas
@@ -294,7 +296,7 @@
             useEffect(() => {
                 const timeoutId = setTimeout(() => draw(), 50);
                 return () => clearTimeout(timeoutId);
-            }, [params, zoom, simularBorde]);
+            }, [params, zoom]);
 
             useEffect(() => {
                 const handleResize = () => window.requestAnimationFrame(draw);
@@ -362,25 +364,9 @@
                                 <div className="space-y-4">
                                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b pb-1">Estructura del Lote</h3>
                                     
-                                    {/* Toggle de Visualización de Borde */}
-                                    <div className="bg-slate-100 p-3 rounded-lg border border-slate-200 mb-2">
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-sm font-semibold text-slate-700 cursor-pointer" htmlFor="toggleBorde">
-                                                Visualizar Borde del Lote
-                                            </label>
-                                            <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                                                <input type="checkbox" name="toggle" id="toggleBorde" checked={simularBorde} onChange={() => setSimularBorde(!simularBorde)} className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer z-10"/>
-                                                <label htmlFor="toggleBorde" className="toggle-label block overflow-hidden h-5 rounded-full bg-slate-300 cursor-pointer"></label>
-                                            </div>
-                                        </div>
-                                        <p className="text-[10px] text-slate-500 mt-1 leading-tight">
-                                            {simularBorde ? "Arranca con 4 hileras, luego calle, luego 8 hileras (Módulo completo)." : "Arranca desde el principio del módulo (8 hileras completas)."}
-                                        </p>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-2 gap-3 mb-2">
                                         <div className="space-y-1">
-                                            <label className="text-xs font-medium text-slate-600">Cortina (m)</label>
+                                            <label className="text-xs font-medium text-slate-600">Cortina Perim. (m)</label>
                                             <div className="flex items-center border rounded px-2 bg-slate-50">
                                                 <WindIcon className="text-slate-400 mr-2" />
                                                 <input type="number" name="distCortina" step="0.01" value={params.distCortina === 0 ? '' : params.distCortina} onChange={handleChange} className="w-full py-1 bg-transparent outline-none text-sm" />
@@ -394,19 +380,31 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="space-y-2 pt-2">
-                                        <label className="text-sm font-medium text-slate-700">Frecuencia de Calle</label>
-                                        <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                                            <span>Cada {params.hilerasPorBloque} hileras</span>
+                                    
+                                    <div className="space-y-4 pt-2 border-t border-slate-100">
+                                        <div>
+                                            <label className="text-sm font-medium text-slate-700">Hileras Iniciales (Borde)</label>
+                                            <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                                                <span>Primer bloque inicia con {params.hilerasIniciales} hileras</span>
+                                            </div>
+                                            <input type="range" name="hilerasIniciales" min="1" max="20" step="1" value={params.hilerasIniciales} onChange={handleChange} className="w-full h-2 bg-slate-200 rounded-lg cursor-pointer accent-blue-500" />
                                         </div>
-                                        <input type="range" name="hilerasPorBloque" min="2" max="20" step="1" value={params.hilerasPorBloque} onChange={handleChange} className="w-full h-2 bg-slate-200 rounded-lg cursor-pointer accent-orange-500" />
-                                    </div>
-                                    <div className="space-y-2 pt-2 border-t border-slate-100">
-                                        <label className="text-sm font-medium text-slate-700">Frecuencia Cortina Interna</label>
-                                        <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                                            <span>{params.frecuenciaCortinas === 0 ? "Solo perimetral" : `Cada ${params.frecuenciaCortinas} hileras`}</span>
+
+                                        <div>
+                                            <label className="text-sm font-medium text-slate-700">Hileras por Bloque Regular</label>
+                                            <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                                                <span>Calles cada {params.hilerasPorBloque} hileras</span>
+                                            </div>
+                                            <input type="range" name="hilerasPorBloque" min="2" max="20" step="1" value={params.hilerasPorBloque} onChange={handleChange} className="w-full h-2 bg-slate-200 rounded-lg cursor-pointer accent-orange-500" />
                                         </div>
-                                        <input type="range" name="frecuenciaCortinas" min="0" max="50" step="1" value={params.frecuenciaCortinas} onChange={handleChange} className="w-full h-2 bg-slate-200 rounded-lg cursor-pointer accent-green-600" />
+
+                                        <div>
+                                            <label className="text-sm font-medium text-slate-700">Frecuencia Cortina Interna</label>
+                                            <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                                                <span>{params.frecuenciaCortinas === 0 ? "Solo perimetral" : `Cortina cada ${params.frecuenciaCortinas} hileras`}</span>
+                                            </div>
+                                            <input type="range" name="frecuenciaCortinas" min="0" max="20" step="1" value={params.frecuenciaCortinas} onChange={handleChange} className="w-full h-2 bg-slate-200 rounded-lg cursor-pointer accent-green-600" />
+                                        </div>
                                     </div>
                                 </div>
                                 {/* Grupo 3 */}
