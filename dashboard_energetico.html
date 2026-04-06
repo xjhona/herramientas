@@ -16,9 +16,27 @@
             100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
         }
         .update-flash { animation: pulse-light 0.5s ease-out; }
+        
+        /* Estilizar la barra de scroll de la lista de turnos */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Ocultar flechas en input number */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans p-4 md:p-8">
+<body class="bg-slate-100 text-gray-800 font-sans p-4 md:p-8 min-h-screen">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-slate-800 text-white px-4 py-3 rounded-lg shadow-2xl opacity-0 transition-opacity duration-300 pointer-events-none z-50 flex items-center gap-2 font-medium">
+        <i class="ph ph-check-circle text-green-400 text-xl"></i> <span id="toast-msg">Enlace copiado</span>
+    </div>
 
     <div class="max-w-7xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
         
@@ -28,7 +46,7 @@
                 <h1 class="text-2xl font-bold flex items-center gap-2">
                     <i class="ph ph-lightning text-yellow-400"></i> Análisis de Consumo y OPEX Electromecánico
                 </h1>
-                <p class="text-blue-200 text-sm mt-1">Calculadora dinámica para estaciones de bombeo e impulsiones largas</p>
+                <p class="text-blue-200 text-sm mt-1">Calculadora dinámica para sistemas de riego con múltiples puntos de operación</p>
             </div>
             
             <!-- Recuadro Dinámico de Motor -->
@@ -46,69 +64,71 @@
             <!-- Controles Izquierda -->
             <div class="lg:col-span-4 space-y-6">
                 
+                <!-- Turnos de Operación -->
                 <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
-                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <i class="ph ph-sliders-horizontal text-blue-600 text-xl"></i> Condiciones de Diseño
+                    <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                        <i class="ph ph-clock text-blue-600 text-xl"></i> Turnos de Operación
                     </h3>
-                    
-                    <div class="space-y-4">
-                        <!-- Q, H y Número de Bombas Editables -->
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-xs text-slate-500 font-bold uppercase">Caudal x Bomba (l/s)</label>
-                                <input type="number" id="input-q" value="200" step="10" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 font-mono shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
-                            </div>
-                            <div>
-                                <label class="text-xs text-slate-500 font-bold uppercase">Presión / HDT (mca)</label>
-                                <input type="number" id="input-h" value="88" step="1" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 font-mono shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs text-slate-500 font-bold uppercase mb-1">
-                                Bombas Operando Simultáneamente
-                            </label>
-                            <input type="number" id="input-qty" value="3" min="1" max="10" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 font-mono shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                            <p class="text-xs text-slate-400 mt-1 italic">*No incluye la bomba de Standby (respaldo).</p>
-                        </div>
-
-                        <hr class="border-slate-200">
-
-                        <!-- Eficiencias -->
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1 flex justify-between">
-                                <span>Eficiencia Hidráulica de la Bomba</span>
-                                <span id="pumpEffVal" class="font-bold text-blue-700">80%</span>
-                            </label>
-                            <input type="range" id="pumpEff" min="60" max="90" value="80" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">
-                                Clase del Motor Eléctrico
-                            </label>
-                            <select id="motorEff" class="w-full bg-white text-slate-700 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                <option value="92">IE1 / IE2 Estándar (~92%)</option>
-                                <option value="95" selected>IE3 Premium (~95%)</option>
-                                <option value="96.5">IE4 Super Premium (~96.5%)</option>
-                            </select>
-                        </div>
+                    <div class="flex gap-2">
+                        <button onclick="copiarEnlace()" class="flex items-center gap-1 text-xs bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-bold hover:bg-slate-300 transition-colors shadow-sm" title="Guardar configuración en un enlace">
+                            <i class="ph ph-link font-bold"></i> Compartir
+                        </button>
+                        <button onclick="addTurno()" class="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-200 transition-colors shadow-sm">
+                            <i class="ph ph-plus font-bold"></i> Añadir Turno
+                        </button>
                     </div>
                 </div>
 
-                <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
-                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <i class="ph ph-coin text-green-600 text-xl"></i> Datos Financieros
-                    </h3>
-                    <div class="space-y-4">
+                <!-- Contenedor de la lista dinámica de turnos -->
+                <div id="turnos-list" class="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2 pb-2">
+                    <!-- Los turnos se inyectan aquí vía JS -->
+                </div>
+                </div>
+
+                <!-- Eficiencias y Tarifas Globales -->
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-6">
+                    <div>
+                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <i class="ph ph-sliders-horizontal text-blue-600 text-xl"></i> Eficiencias Globales
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1 flex justify-between">
+                                    <span>Eficiencia Hidráulica Promedio</span>
+                                    <span id="pumpEffVal" class="font-bold text-blue-700">80%</span>
+                                </label>
+                                <input type="range" id="pumpEff" min="60" max="90" value="80" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">
+                                    Clase del Motor Eléctrico
+                                </label>
+                                <select id="motorEff" class="w-full bg-white text-slate-700 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                    <option value="92">IE1 / IE2 Estándar (~92%)</option>
+                                    <option value="95" selected>IE3 Premium (~95%)</option>
+                                    <option value="96.5">IE4 Super Premium (~96.5%)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr class="border-slate-200">
+
+                    <div>
+                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <i class="ph ph-calendar text-green-600 text-xl"></i> Operación y Tarifa
+                        </h3>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-xs text-slate-500 font-bold uppercase mb-1">Horas / Año</label>
-                                <input type="number" id="hoursYear" value="4000" step="500" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none">
+                                <label class="block text-xs text-slate-500 font-bold uppercase mb-1">Días / Año</label>
+                                <input type="number" id="dias-ano" value="300" step="1" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none font-mono">
                             </div>
                             <div>
-                                <label class="block text-xs text-slate-500 font-bold uppercase mb-1">Tarifa ($/kWh)</label>
-                                <input type="number" id="tariff" value="0.09" step="0.01" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none">
+                                <label class="block text-xs text-slate-500 font-bold uppercase mb-1">Costo ($/kWh)</label>
+                                <input type="number" id="tariff" value="0.09" step="0.01" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none font-mono">
                             </div>
                         </div>
                     </div>
@@ -119,35 +139,27 @@
             <!-- Resultados y Gráficos Derecha -->
             <div class="lg:col-span-8 space-y-6">
                 
-                <!-- Tarjetas de Resultados KPI -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- Tarjetas de Resultados KPI (Ahora 3 columnas) -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-orange-500 relative overflow-hidden">
-                        <i class="ph ph-plug text-4xl text-orange-100 absolute -bottom-2 -right-2"></i>
-                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wide">Potencia Eléctrica (Total)</p>
-                        <p class="text-2xl font-black text-slate-800 mt-1" id="kpi-kw">-- kW</p>
-                        <p class="text-xs text-slate-400 mt-1">Absorbida de la red</p>
+                        <i class="ph ph-clock text-4xl text-orange-100 absolute -bottom-2 -right-2"></i>
+                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wide">Tiempo Riego Diario</p>
+                        <p class="text-2xl font-black text-slate-800 mt-1" id="kpi-time">-- hrs</p>
+                        <p class="text-[10px] text-slate-400 mt-1 leading-tight">Suma de horas de todos los turnos</p>
                     </div>
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-blue-500 relative overflow-hidden">
-                        <i class="ph ph-chart-line-up text-4xl text-blue-100 absolute -bottom-2 -right-2"></i>
-                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wide">Consumo de Campaña</p>
-                        <p class="text-2xl font-black text-slate-800 mt-1" id="kpi-kwh">-- MWh</p>
-                        <p class="text-xs text-slate-400 mt-1">Megavatios-hora anuales</p>
+                        <i class="ph ph-lightning text-4xl text-blue-100 absolute -bottom-2 -right-2"></i>
+                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wide">Demanda de Energía Diaria</p>
+                        <p class="text-2xl font-black text-slate-800 mt-1" id="kpi-kwh-dia">-- kWh</p>
+                        <p class="text-[10px] text-slate-400 mt-1 leading-tight">Consumo estimado por día de riego</p>
                     </div>
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-green-500 relative overflow-hidden">
                         <i class="ph ph-currency-dollar text-4xl text-green-100 absolute -bottom-2 -right-2"></i>
                         <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wide">OPEX (Factura Anual)</p>
                         <p class="text-2xl font-black text-green-600 mt-1" id="kpi-cost">$--</p>
-                        <p class="text-xs text-slate-400 mt-1">Costo directo estimado</p>
-                    </div>
-
-                    <!-- Nueva Tarjeta: Huella de Carbono -->
-                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-teal-500 relative overflow-hidden">
-                        <i class="ph ph-leaf text-4xl text-teal-100 absolute -bottom-2 -right-2"></i>
-                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wide">Huella de Carbono</p>
-                        <p class="text-2xl font-black text-teal-700 mt-1" id="kpi-co2">-- Ton</p>
-                        <p class="text-xs text-slate-400 mt-1">Emisiones CO₂ / Año</p>
+                        <p class="text-[10px] text-slate-400 mt-1 leading-tight">Costo directo estimado anual</p>
                     </div>
                 </div>
 
@@ -155,7 +167,7 @@
                 <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <div class="mb-2">
                         <h3 class="text-lg font-bold text-slate-800">Costo Total de Propiedad Operativo (TCO) a 10 Años</h3>
-                        <p class="text-sm text-slate-500">Compara la acumulación de gasto entre tu configuración seleccionada y un equipo estándar de baja eficiencia (Bomba 65%, Motor 90%).</p>
+                        <p class="text-sm text-slate-500">Compara la acumulación de gasto del conjunto de tus turnos contra un equipo estándar de baja eficiencia (Bomba 65%, Motor 90%).</p>
                     </div>
                     <div id="opexChart" class="w-full h-[400px]"></div>
                 </div>
@@ -171,15 +183,12 @@
             200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000
         ];
         
-        // Elementos UI: Entradas
-        const elQ = document.getElementById('input-q');
-        const elH = document.getElementById('input-h');
-        const elQty = document.getElementById('input-qty');
+        // Elementos UI: Entradas Globales
         const elPumpEff = document.getElementById('pumpEff');
         const elPumpEffVal = document.getElementById('pumpEffVal');
         const elMotorEff = document.getElementById('motorEff');
-        const elHours = document.getElementById('hoursYear');
         const elTariff = document.getElementById('tariff');
+        const elDiasAno = document.getElementById('dias-ano');
 
         // Elementos UI: Salidas
         const outHP = document.getElementById('suggested-hp');
@@ -187,42 +196,167 @@
         const motorBox = document.getElementById('motorBox');
         
         // KPIs
-        const kpiKw = document.getElementById('kpi-kw');
-        const kpiKwh = document.getElementById('kpi-kwh');
+        const kpiTime = document.getElementById('kpi-time');
+        const kpiKwhDia = document.getElementById('kpi-kwh-dia');
         const kpiCost = document.getElementById('kpi-cost');
-        const kpiCo2 = document.getElementById('kpi-co2');
 
         const gravedad = 9.81;
         const ef_vfd = 0.97; // Eficiencia promedio de un Variador de Frecuencia
-        const factor_emision_co2 = 0.4; // kg CO2 por kWh (Promedio referencial de red mixta)
 
         let lastSuggestedHP = 0;
 
+        // Estado Global de Turnos
+        let turnos = [
+            { id: 1, q: 200, h: 88, qty: 3, horas_dia: 4 },
+            { id: 2, q: 150, h: 95, qty: 2, horas_dia: 6 } 
+        ];
+
+        // Función para renderizar el HTML de la lista de turnos
+        function renderTurnos() {
+            const container = document.getElementById('turnos-list');
+            container.innerHTML = '';
+            
+            turnos.forEach((turno, index) => {
+                const isOnly = turnos.length === 1;
+                const card = document.createElement('div');
+                card.className = "bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative";
+                card.innerHTML = `
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
+                        <h4 class="font-bold text-sm text-blue-800 flex items-center gap-1">
+                            <i class="ph ph-drop text-blue-500"></i> Turno ${index + 1}
+                        </h4>
+                        <div class="flex items-center gap-3">
+                            <div class="text-[10px] font-bold bg-orange-50 text-orange-600 border border-orange-200 px-2 py-1 rounded flex items-center gap-1" title="Potencia en el eje (BHP) requerida por BOMBA en este turno">
+                                <i class="ph ph-engine"></i> <span id="hp-turno-${turno.id}">-- HP/bomba</span>
+                            </div>
+                            ${!isOnly ? `<button onclick="removeTurno(${turno.id})" class="text-red-400 hover:text-red-600 transition-colors p-1" title="Eliminar Turno"><i class="ph ph-trash text-lg"></i></button>` : ''}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] text-slate-500 font-bold uppercase">Caudal / Bomba (l/s)</label>
+                            <input type="number" data-id="${turno.id}" data-field="q" value="${turno.q}" step="5" class="turno-input w-full bg-slate-50 text-slate-800 font-mono rounded-lg p-2 border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-500 font-bold uppercase">ADT (mca)</label>
+                            <input type="number" data-id="${turno.id}" data-field="h" value="${turno.h}" step="1" class="turno-input w-full bg-slate-50 text-slate-800 font-mono rounded-lg p-2 border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-500 font-bold uppercase">Bombas Op.</label>
+                            <input type="number" data-id="${turno.id}" data-field="qty" value="${turno.qty}" min="1" class="turno-input w-full bg-slate-50 text-slate-800 font-mono rounded-lg p-2 border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-500 font-bold uppercase">Horas / Día</label>
+                            <input type="number" data-id="${turno.id}" data-field="horas_dia" value="${turno.horas_dia}" step="0.5" class="turno-input w-full bg-slate-50 text-slate-800 font-mono rounded-lg p-2 border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Re-asignar eventos a los inputs generados
+            document.querySelectorAll('.turno-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const id = parseInt(e.target.dataset.id);
+                    const field = e.target.dataset.field;
+                    const turnoToUpdate = turnos.find(t => t.id === id);
+                    if (turnoToUpdate) {
+                        turnoToUpdate[field] = parseFloat(e.target.value) || 0;
+                        calcularYActualizar();
+                    }
+                });
+            });
+        }
+
+        // Operaciones de Lista de Turnos
+        function addTurno() {
+            const newId = turnos.length > 0 ? Math.max(...turnos.map(t => t.id)) + 1 : 1;
+            // Clonar datos del último turno para que sea más fácil al usuario
+            const lastTurno = turnos.length > 0 ? turnos[turnos.length - 1] : { q: 200, h: 88, qty: 3, horas_dia: 4 };
+            
+            turnos.push({ 
+                id: newId, 
+                q: lastTurno.q, 
+                h: lastTurno.h, 
+                qty: lastTurno.qty, 
+                horas_dia: lastTurno.horas_dia 
+            });
+            renderTurnos();
+            calcularYActualizar();
+            
+            // Scroll hacia abajo
+            const list = document.getElementById('turnos-list');
+            list.scrollTop = list.scrollHeight;
+        }
+
+        function removeTurno(id) {
+            if (turnos.length <= 1) return; // Prevenir borrar el último
+            turnos = turnos.filter(t => t.id !== id);
+            renderTurnos();
+            calcularYActualizar();
+        }
+
+        // Motor de Cálculo Principal
         function calcularYActualizar() {
-            // 1. Obtener valores del usuario
-            const Q_lps = parseFloat(elQ.value) || 0;
-            const H_m = parseFloat(elH.value) || 0;
-            const num_bombas = parseInt(elQty.value) || 1;
+            // Valores Globales
             const ef_bomba = parseFloat(elPumpEff.value) / 100;
             const ef_motor = parseFloat(elMotorEff.value) / 100;
-            const horas = parseFloat(elHours.value) || 0;
             const tarifa = parseFloat(elTariff.value) || 0;
-
-            const Q_m3s = Q_lps / 1000;
+            const dias_ano = parseFloat(elDiasAno.value) || 0;
             elPumpEffVal.innerText = elPumpEff.value + '%';
 
-            // 2. Cálculo Físico y Selección de Motor
-            // Potencia requerida en el eje (Brake Power)
-            const P_hidraulica = (gravedad * Q_m3s * H_m) / 1.0; // kW
-            const P_eje_kw = P_hidraulica / ef_bomba; 
+            let max_eje_kw_per_pump = 0; 
             
-            // Selección del motor con 15% de factor de servicio
-            const neededHP = (P_eje_kw * 1.34102) * 1.15;
+            let total_horas_dia = 0;
+            let energia_diaria_total_kwh = 0;
+            let energia_diaria_mala_kwh = 0; 
+
+            // Escenario Pesimista (Baseline)
+            const ef_b_mala = 0.65;
+            const ef_m_mala = 0.90;
+
+            // Recorrer todos los turnos y acumular valores diarios
+            turnos.forEach(turno => {
+                const Q_m3s = turno.q / 1000;
+                
+                // 1. Acumular Horas de Riego Diario
+                total_horas_dia += turno.horas_dia;
+
+                // 2. Físico / Mecánico
+                const P_hidraulica_bomba = (gravedad * Q_m3s * turno.h) / 1.0; // kW por bomba
+                const P_eje_bomba_kw = P_hidraulica_bomba / ef_bomba; 
+                
+                // Buscar el punto de operación más demandante para el motor
+                if (P_eje_bomba_kw > max_eje_kw_per_pump) {
+                    max_eje_kw_per_pump = P_eje_bomba_kw;
+                }
+
+                // 3. Eléctrico (Tu configuración)
+                const P_electrica_bomba = P_eje_bomba_kw / (ef_motor * ef_vfd);
+                const P_total_turno_kw = P_electrica_bomba * turno.qty;
+                
+                // Mostrar potencia instantánea consumida en la tarjeta del turno (en HP)
+                const P_eje_bomba_hp = P_eje_bomba_kw * 1.34102;
+                const etiquetaHp = document.getElementById(`hp-turno-${turno.id}`);
+                if (etiquetaHp) {
+                    etiquetaHp.innerText = P_eje_bomba_hp.toFixed(1) + ' HP/bomba';
+                }
+
+                // Consumo Diario de este turno (kWh/día)
+                energia_diaria_total_kwh += (P_total_turno_kw * turno.horas_dia);
+
+                // 4. Eléctrico (Equipo ineficiente para el gráfico)
+                const P_elec_mala_bomba = (P_hidraulica_bomba / ef_b_mala) / (ef_m_mala * ef_vfd);
+                energia_diaria_mala_kwh += (P_elec_mala_bomba * turno.qty * turno.horas_dia);
+            });
+
+            // Selección del motor sugerido basado en el requerimiento MÁXIMO (Factor de Servicio 1.15)
+            const neededHP = (max_eje_kw_per_pump * 1.34102) * 1.15;
             let standardHP = standardMotorsHP.find(hp => hp >= neededHP);
-            if (!standardHP) standardHP = Math.ceil(neededHP); // Fallback si excede 1000HP
+            if (!standardHP) standardHP = Math.ceil(neededHP); // Fallback
             const standardKW = standardHP * 0.7457;
 
-            // Animar la caja si el tamaño del motor sugerido cambia
+            // Animar la caja del motor si cambia
             if (standardHP !== lastSuggestedHP) {
                 motorBox.classList.remove('update-flash');
                 void motorBox.offsetWidth; // Trigger reflow
@@ -233,32 +367,21 @@
             outHP.innerText = standardHP + ' HP';
             outKW.innerText = '(' + standardKW.toFixed(0) + ' kW)';
 
-            // 3. Cálculos Eléctricos y Financieros Totales
-            const P_electrica_por_bomba = P_eje_kw / (ef_motor * ef_vfd);
-            const P_total_kw = P_electrica_por_bomba * num_bombas;
-            
-            const Energia_anual_kwh = P_total_kw * horas;
-            const Costo_anual_usd = Energia_anual_kwh * tarifa;
-            const Emisiones_co2_ton = (Energia_anual_kwh * factor_emision_co2) / 1000;
+            // Cálculos Financieros Globales (Basados en Días/Año)
+            const energia_anual_total_kwh = energia_diaria_total_kwh * dias_ano;
+            const energia_anual_mala_kwh = energia_diaria_mala_kwh * dias_ano;
+            const Costo_anual_usd = energia_anual_total_kwh * tarifa;
 
             // Actualizar KPIs (Tarjetas)
-            kpiKw.innerText = P_total_kw.toFixed(1) + ' kW';
-            kpiKwh.innerText = (Energia_anual_kwh / 1000).toFixed(1) + ' MWh';
+            kpiTime.innerText = total_horas_dia.toFixed(1) + ' hrs';
+            kpiKwhDia.innerText = energia_diaria_total_kwh.toLocaleString('en-US', {maximumFractionDigits: 1}) + ' kWh';
             kpiCost.innerText = '$' + Costo_anual_usd.toLocaleString('en-US', {maximumFractionDigits: 0});
-            kpiCo2.innerText = Emisiones_co2_ton.toLocaleString('en-US', {maximumFractionDigits: 0}) + ' Ton';
 
-            // 4. Generar datos para el gráfico comparativo
-            // Escenario pesimista: Bomba estándar al 65%, Motor estándar al 90%
-            const ef_b_mala = 0.65;
-            const ef_m_mala = 0.90;
-            const P_elec_mala = (P_hidraulica / ef_b_mala) / (ef_m_mala * ef_vfd);
-            const P_tot_mala = P_elec_mala * num_bombas;
-            const Costo_anual_mala = P_tot_mala * horas * tarifa;
-
+            // Generar datos para el gráfico comparativo
+            const Costo_anual_mala = energia_anual_mala_kwh * tarifa;
             const anos = Array.from({length: 10}, (_, i) => i + 1);
             const acum_actual = anos.map(a => Costo_anual_usd * a);
             const acum_mala = anos.map(a => Costo_anual_mala * a);
-
             const ahorro_10_anos = (Costo_anual_mala - Costo_anual_usd) * 10;
 
             const traceMala = {
@@ -297,13 +420,13 @@
                     tickprefix: '$',
                     gridcolor: '#f1f5f9'
                 },
-                margin: {l: 70, r: 30, t: 80, b: 80}, // Ajustado para dar espacio a título y leyenda
+                margin: {l: 70, r: 30, t: 80, b: 80},
                 hovermode: 'x unified',
                 plot_bgcolor: 'rgba(0,0,0,0)',
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 legend: {
                     orientation: 'h', 
-                    y: -0.2, // Colocada limpiamente en la parte inferior
+                    y: -0.2,
                     x: 0.5, 
                     xanchor: 'center',
                     font: { size: 13 }
@@ -311,18 +434,71 @@
             };
 
             const config = { responsive: true, displayModeBar: false };
-
             Plotly.react('opexChart', [traceMala, traceActual], layout, config);
         }
 
-        // Listeners: Refrescar gráfico ante cualquier cambio del usuario
-        [elQ, elH, elQty, elPumpEff, elMotorEff, elHours, elTariff].forEach(el => {
+        // Listeners Globales
+        [elPumpEff, elMotorEff, elTariff, elDiasAno].forEach(el => {
             el.addEventListener('input', calcularYActualizar);
             if(el.tagName === 'SELECT') el.addEventListener('change', calcularYActualizar);
         });
 
-        // Ejecutar cálculo inicial
-        calcularYActualizar();
+        // Funciones de Guardado/Compartir
+        function copiarEnlace() {
+            const state = {
+                turnos: turnos,
+                pumpEff: elPumpEff.value,
+                motorEff: elMotorEff.value,
+                tariff: elTariff.value,
+                diasAno: elDiasAno.value
+            };
+            // Convertimos el estado a Base64 para anexarlo a la URL
+            const b64 = btoa(JSON.stringify(state));
+            const url = new URL(window.location.href);
+            url.searchParams.set('data', b64);
+            
+            // Copiar al portapapeles
+            const tempInput = document.createElement("input");
+            tempInput.value = url.toString();
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+
+            mostrarToast("¡Configuración copiada al portapapeles!");
+        }
+
+        function mostrarToast(mensaje) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            if(toastMsg) toastMsg.innerText = mensaje;
+            toast.classList.remove('opacity-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+            }, 3000);
+        }
+
+        // Inicializar y Cargar desde URL
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const dataParam = params.get('data');
+            
+            if (dataParam) {
+                try {
+                    const state = JSON.parse(atob(dataParam));
+                    if (state.turnos) turnos = state.turnos;
+                    if (state.pumpEff) { elPumpEff.value = state.pumpEff; elPumpEffVal.innerText = state.pumpEff + '%'; }
+                    if (state.motorEff) elMotorEff.value = state.motorEff;
+                    if (state.tariff) elTariff.value = state.tariff;
+                    if (state.diasAno) elDiasAno.value = state.diasAno;
+                } catch (e) {
+                    console.error("Error cargando configuración desde la URL:", e);
+                }
+            }
+            
+            renderTurnos();
+            calcularYActualizar();
+        });
     </script>
 </body>
 </html>
