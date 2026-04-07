@@ -163,6 +163,31 @@
                     </div>
                 </div>
 
+                <!-- Tabla Resumen -->
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="mb-4">
+                        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i class="ph ph-table text-blue-600"></i> Resumen de Operación
+                        </h3>
+                    </div>
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
+                                    <th class="p-3 font-bold rounded-tl-lg">Turno</th>
+                                    <th class="p-3 font-bold">Caudal (l/s)</th>
+                                    <th class="p-3 font-bold">ADT (mca)</th>
+                                    <th class="p-3 font-bold text-center">Horas / Día</th>
+                                    <th class="p-3 font-bold text-right rounded-tr-lg">Potencia Requerida Instantánea</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resumen-tbody" class="text-sm text-slate-700 divide-y divide-slate-100">
+                                <!-- Filas generadas por JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Gráfico de Comparativa -->
                 <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <div class="mb-2">
@@ -315,8 +340,10 @@
             const ef_b_mala = 0.65;
             const ef_m_mala = 0.90;
 
+            let filas_tabla = '';
+
             // Recorrer todos los turnos y acumular valores diarios
-            turnos.forEach(turno => {
+            turnos.forEach((turno, index) => {
                 const Q_m3s = turno.q / 1000;
                 
                 // 1. Acumular Horas de Riego Diario
@@ -342,6 +369,21 @@
                     etiquetaHp.innerText = P_eje_bomba_hp.toFixed(1) + ' HP/bomba';
                 }
 
+                // Agregar fila a la tabla resumen
+                const total_hp_turno = P_eje_bomba_hp * turno.qty;
+                filas_tabla += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-3 font-bold text-slate-800">Turno ${index + 1}</td>
+                        <td class="p-3">${turno.q}</td>
+                        <td class="p-3">${turno.h}</td>
+                        <td class="p-3 text-center">${turno.horas_dia}</td>
+                        <td class="p-3 text-right font-bold text-orange-600">
+                            ${total_hp_turno.toFixed(1)} HP
+                            <div class="text-[10px] text-slate-400 font-normal leading-tight">${P_eje_bomba_hp.toFixed(1)} HP x ${turno.qty} Bombas</div>
+                        </td>
+                    </tr>
+                `;
+
                 // Consumo Diario de este turno (kWh/día)
                 energia_diaria_total_kwh += (P_total_turno_kw * turno.horas_dia);
 
@@ -349,6 +391,9 @@
                 const P_elec_mala_bomba = (P_hidraulica_bomba / ef_b_mala) / (ef_m_mala * ef_vfd);
                 energia_diaria_mala_kwh += (P_elec_mala_bomba * turno.qty * turno.horas_dia);
             });
+
+            const tbody = document.getElementById('resumen-tbody');
+            if (tbody) tbody.innerHTML = filas_tabla;
 
             // Selección del motor sugerido basado en el requerimiento MÁXIMO (Factor de Servicio 1.15)
             const neededHP = (max_eje_kw_per_pump * 1.34102) * 1.15;
