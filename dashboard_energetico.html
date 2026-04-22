@@ -96,10 +96,17 @@
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-1 flex justify-between">
-                                    <span>Eficiencia Hidráulica Promedio</span>
-                                    <span id="pumpEffVal" class="font-bold text-blue-700">80%</span>
+                                    <span>Eficiencia B. Horizontal</span>
+                                    <span id="pumpEffHorizVal" class="font-bold text-blue-700">75%</span>
                                 </label>
-                                <input type="range" id="pumpEff" min="60" max="90" value="80" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                                <input type="range" id="pumpEffHoriz" min="50" max="90" value="75" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1 flex justify-between">
+                                    <span>Eficiencia B. Vertical</span>
+                                    <span id="pumpEffVertVal" class="font-bold text-green-600">84%</span>
+                                </label>
+                                <input type="range" id="pumpEffVert" min="60" max="95" value="84" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-green-500">
                             </div>
 
                             <div>
@@ -136,12 +143,16 @@
                                     <label class="block text-xs text-slate-500 font-bold uppercase mb-1">Días / Año</label>
                                     <input type="number" id="dias-ano" value="300" step="1" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none font-mono">
                                 </div>
-                                
-                                <!-- Controles Red Eléctrica -->
-                                <div id="container-grid" class="block">
-                                    <label class="block text-xs text-slate-500 font-bold uppercase mb-1">Tarifa ($/kWh)</label>
-                                    <input type="number" id="tariff" value="0.09" step="0.01" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none font-mono">
+                                <div>
+                                    <label class="block text-xs text-slate-500 font-bold uppercase mb-1">Años a Proyectar</label>
+                                    <input type="number" id="anos-proy" value="10" step="1" min="1" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none font-mono">
                                 </div>
+                            </div>
+
+                            <!-- Controles Red Eléctrica -->
+                            <div id="container-grid" class="block pt-2 border-t border-slate-200">
+                                <label class="block text-xs text-slate-500 font-bold uppercase mb-1">Tarifa ($/kWh)</label>
+                                <input type="number" id="tariff" value="0.09" step="0.01" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none font-mono">
                             </div>
 
                             <!-- Controles Generador Diésel (Ocultos por defecto) -->
@@ -203,7 +214,7 @@
                                     <th class="p-3 font-bold">Caudal (l/s)</th>
                                     <th class="p-3 font-bold">ADT (mca)</th>
                                     <th class="p-3 font-bold text-center">Horas / Día</th>
-                                    <th class="p-3 font-bold text-right rounded-tr-lg">Potencia Requerida Instantánea</th>
+                                    <th class="p-3 font-bold text-right rounded-tr-lg">Potencia Requerida (B. Horiz)</th>
                                 </tr>
                             </thead>
                             <tbody id="resumen-tbody" class="text-sm text-slate-700 divide-y divide-slate-100">
@@ -215,10 +226,6 @@
 
                 <!-- Gráfico de Comparativa -->
                 <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <div class="mb-2">
-                        <h3 class="text-lg font-bold text-slate-800">Costo Total de Propiedad Operativo (TCO) a 10 Años</h3>
-                        <p class="text-sm text-slate-500">Compara la acumulación de gasto del conjunto de tus turnos contra un equipo estándar de baja eficiencia (Bomba 65%, Motor 90%).</p>
-                    </div>
                     <div id="opexChart" class="w-full h-[400px]"></div>
                 </div>
 
@@ -234,10 +241,13 @@
         ];
         
         // Elementos UI: Entradas Globales
-        const elPumpEff = document.getElementById('pumpEff');
-        const elPumpEffVal = document.getElementById('pumpEffVal');
+        const elPumpEffHoriz = document.getElementById('pumpEffHoriz');
+        const elPumpEffHorizVal = document.getElementById('pumpEffHorizVal');
+        const elPumpEffVert = document.getElementById('pumpEffVert');
+        const elPumpEffVertVal = document.getElementById('pumpEffVertVal');
         const elMotorEff = document.getElementById('motorEff');
         const elDiasAno = document.getElementById('dias-ano');
+        const elAnosProy = document.getElementById('anos-proy');
         
         // Elementos Energía
         const elEnergySource = document.getElementById('energy-source');
@@ -293,7 +303,7 @@
                             <i class="ph ph-drop text-blue-500"></i> Turno ${index + 1}
                         </h4>
                         <div class="flex items-center gap-3">
-                            <div class="text-[10px] font-bold bg-orange-50 text-orange-600 border border-orange-200 px-2 py-1 rounded flex items-center gap-1" title="Potencia en el eje (BHP) requerida por BOMBA en este turno">
+                            <div class="text-[10px] font-bold bg-orange-50 text-orange-600 border border-orange-200 px-2 py-1 rounded flex items-center gap-1" title="Potencia en el eje (BHP) requerida por BOMBA en este turno (Base Horizontal)">
                                 <i class="ph ph-engine"></i> <span id="hp-turno-${turno.id}">-- HP/bomba</span>
                             </div>
                             ${!isOnly ? `<button onclick="removeTurno(${turno.id})" class="text-red-400 hover:text-red-600 transition-colors p-1" title="Eliminar Turno"><i class="ph ph-trash text-lg"></i></button>` : ''}
@@ -355,9 +365,11 @@
 
         // Motor de Cálculo Principal
         function calcularYActualizar() {
-            const ef_bomba = parseFloat(elPumpEff.value) / 100;
+            const ef_horiz = parseFloat(elPumpEffHoriz.value) / 100;
+            const ef_vert = parseFloat(elPumpEffVert.value) / 100;
             const ef_motor = parseFloat(elMotorEff.value) / 100;
             const dias_ano = parseFloat(elDiasAno.value) || 0;
+            const anos_proy = parseFloat(elAnosProy.value) || 10;
             
             // Fuentes de energía
             const isGrid = elEnergySource.value === 'grid';
@@ -365,16 +377,15 @@
             const precio_galon = parseFloat(elFuelPrice.value) || 0;
             const consumo_gal_kwh = parseFloat(elFuelCons.value) || 0;
 
-            elPumpEffVal.innerText = elPumpEff.value + '%';
+            elPumpEffHorizVal.innerText = elPumpEffHoriz.value + '%';
+            elPumpEffVertVal.innerText = elPumpEffVert.value + '%';
 
             let max_eje_kw_per_pump = 0; 
             let total_horas_dia = 0;
-            let energia_diaria_total_kwh = 0;
-            let energia_diaria_mala_kwh = 0; 
-
-            // Escenario Pesimista (Baseline)
-            const ef_b_mala = 0.65;
-            const ef_m_mala = 0.90;
+            
+            // Energías según el tipo de bomba
+            let energia_diaria_horiz_kwh = 0;
+            let energia_diaria_vert_kwh = 0;
 
             let filas_tabla = '';
 
@@ -385,21 +396,20 @@
 
                 // Físico / Mecánico
                 const P_hidraulica_bomba = (gravedad * Q_m3s * turno.h) / 1.0; 
-                const P_eje_bomba_kw = P_hidraulica_bomba / ef_bomba; 
                 
-                if (P_eje_bomba_kw > max_eje_kw_per_pump) {
-                    max_eje_kw_per_pump = P_eje_bomba_kw;
+                // --- 1. BOMBA HORIZONTAL (Base para dimensión de motor y KPIs) ---
+                const P_eje_horiz_kw = P_hidraulica_bomba / ef_horiz; 
+                if (P_eje_horiz_kw > max_eje_kw_per_pump) {
+                    max_eje_kw_per_pump = P_eje_horiz_kw;
                 }
-
-                // Eléctrico
-                const P_electrica_bomba = P_eje_bomba_kw / (ef_motor * ef_vfd);
-                const P_total_turno_kw = P_electrica_bomba * turno.qty;
+                const P_electrica_horiz = P_eje_horiz_kw / (ef_motor * ef_vfd);
+                const P_total_horiz_kw = P_electrica_horiz * turno.qty;
                 
-                const P_eje_bomba_hp = P_eje_bomba_kw * 1.34102;
+                const P_eje_horiz_hp = P_eje_horiz_kw * 1.34102;
                 const etiquetaHp = document.getElementById(`hp-turno-${turno.id}`);
-                if (etiquetaHp) etiquetaHp.innerText = P_eje_bomba_hp.toFixed(1) + ' HP/bomba';
+                if (etiquetaHp) etiquetaHp.innerText = P_eje_horiz_hp.toFixed(1) + ' HP/bomba';
 
-                const total_hp_turno = P_eje_bomba_hp * turno.qty;
+                const total_hp_turno = P_eje_horiz_hp * turno.qty;
                 filas_tabla += `
                     <tr class="hover:bg-slate-50 transition-colors">
                         <td class="p-3 font-bold text-slate-800">Turno ${index + 1}</td>
@@ -408,20 +418,25 @@
                         <td class="p-3 text-center">${turno.horas_dia}</td>
                         <td class="p-3 text-right font-bold text-orange-600">
                             ${total_hp_turno.toFixed(1)} HP
-                            <div class="text-[10px] text-slate-400 font-normal leading-tight">${P_eje_bomba_hp.toFixed(1)} HP x ${turno.qty} Bombas</div>
+                            <div class="text-[10px] text-slate-400 font-normal leading-tight">${P_eje_horiz_hp.toFixed(1)} HP x ${turno.qty} Bombas</div>
                         </td>
                     </tr>
                 `;
 
-                energia_diaria_total_kwh += (P_total_turno_kw * turno.horas_dia);
+                energia_diaria_horiz_kwh += (P_total_horiz_kw * turno.horas_dia);
 
-                const P_elec_mala_bomba = (P_hidraulica_bomba / ef_b_mala) / (ef_m_mala * ef_vfd);
-                energia_diaria_mala_kwh += (P_elec_mala_bomba * turno.qty * turno.horas_dia);
+                // --- 2. BOMBA VERTICAL ---
+                const P_eje_vert_kw = P_hidraulica_bomba / ef_vert;
+                const P_electrica_vert = P_eje_vert_kw / (ef_motor * ef_vfd);
+                const P_total_vert_kw = P_electrica_vert * turno.qty;
+                
+                energia_diaria_vert_kwh += (P_total_vert_kw * turno.horas_dia);
             });
 
             const tbody = document.getElementById('resumen-tbody');
             if (tbody) tbody.innerHTML = filas_tabla;
 
+            // Dimensionamiento con el peor escenario (Horizontal)
             const neededHP = (max_eje_kw_per_pump * 1.34102) * 1.15;
             let standardHP = standardMotorsHP.find(hp => hp >= neededHP);
             if (!standardHP) standardHP = Math.ceil(neededHP);
@@ -438,102 +453,89 @@
             outKW.innerText = '(' + standardKW.toFixed(0) + ' kW)';
 
             // Cálculos Financieros Globales (Basados en Días/Año y Tipo de Energía)
-            let Costo_anual_usd = 0;
-            let Costo_anual_mala = 0;
+            let Costo_anual_horiz = 0;
+            let Costo_anual_vert = 0;
 
             if (isGrid) {
                 // Cálculo de Red Eléctrica
-                const energia_anual_total_kwh = energia_diaria_total_kwh * dias_ano;
-                Costo_anual_usd = energia_anual_total_kwh * tarifa_kwh;
-                Costo_anual_mala = (energia_diaria_mala_kwh * dias_ano) * tarifa_kwh;
+                Costo_anual_horiz = energia_diaria_horiz_kwh * dias_ano * tarifa_kwh;
+                Costo_anual_vert = energia_diaria_vert_kwh * dias_ano * tarifa_kwh;
                 
-                kpiEnergyTitle.innerText = "Demanda Eléctrica Diaria";
-                kpiEnergyVal.innerText = energia_diaria_total_kwh.toLocaleString('en-US', {maximumFractionDigits: 1}) + ' kWh';
+                kpiEnergyTitle.innerText = "Demanda Diaria (B. Horizontal)";
+                kpiEnergyVal.innerText = energia_diaria_horiz_kwh.toLocaleString('en-US', {maximumFractionDigits: 1}) + ' kWh';
                 kpiEnergySub.innerText = "Consumo eléctrico por día de riego";
                 kpiEnergyIcon.className = "ph ph-lightning text-4xl text-blue-100 absolute -bottom-2 -right-2";
                 
-                kpiCostSub.innerText = "Factura eléctrica estimada anual";
+                kpiCostSub.innerText = "Gasto anual estimado (B. Horizontal)";
 
             } else {
                 // Cálculo de Generador Diésel
-                const galones_diarios_total = energia_diaria_total_kwh * consumo_gal_kwh;
-                const galones_diarios_mala = energia_diaria_mala_kwh * consumo_gal_kwh;
+                Costo_anual_horiz = (energia_diaria_horiz_kwh * consumo_gal_kwh * dias_ano) * precio_galon;
+                Costo_anual_vert = (energia_diaria_vert_kwh * consumo_gal_kwh * dias_ano) * precio_galon;
                 
-                Costo_anual_usd = (galones_diarios_total * dias_ano) * precio_galon;
-                Costo_anual_mala = (galones_diarios_mala * dias_ano) * precio_galon;
-                
-                kpiEnergyTitle.innerText = "Consumo Diésel Diario";
-                kpiEnergyVal.innerText = galones_diarios_total.toLocaleString('en-US', {maximumFractionDigits: 1}) + ' Gal';
+                const galones_diarios_horiz = energia_diaria_horiz_kwh * consumo_gal_kwh;
+                kpiEnergyTitle.innerText = "Consumo Diésel (B. Horizontal)";
+                kpiEnergyVal.innerText = galones_diarios_horiz.toLocaleString('en-US', {maximumFractionDigits: 1}) + ' Gal';
                 kpiEnergySub.innerText = "Combustible por día de riego";
                 kpiEnergyIcon.className = "ph ph-gas-pump text-4xl text-blue-100 absolute -bottom-2 -right-2";
                 
-                kpiCostSub.innerText = "Costo de combustible estimado anual";
+                kpiCostSub.innerText = "Gasto anual estimado (B. Horizontal)";
             }
 
             kpiTime.innerText = total_horas_dia.toFixed(1) + ' hrs';
-            kpiCost.innerText = '$' + Costo_anual_usd.toLocaleString('en-US', {maximumFractionDigits: 0});
+            kpiCost.innerText = '$' + Costo_anual_horiz.toLocaleString('en-US', {maximumFractionDigits: 0});
 
-            // Generar datos para el gráfico comparativo
-            const anos = Array.from({length: 10}, (_, i) => i + 1);
-            const acum_actual = anos.map(a => Costo_anual_usd * a);
-            const acum_mala = anos.map(a => Costo_anual_mala * a);
-            const ahorro_10_anos = (Costo_anual_mala - Costo_anual_usd) * 10;
+            // Generar datos para el gráfico comparativo (Barras según años de proyección)
+            const Costo_xa_horiz = Costo_anual_horiz * anos_proy;
+            const Costo_xa_vert = Costo_anual_vert * anos_proy;
+            
+            const ahorro_upgrade = Costo_xa_horiz - Costo_xa_vert;
 
-            const traceMala = {
-                x: anos,
-                y: acum_mala,
-                name: 'Equipo Estándar (Baja Eficiencia)',
-                type: 'scatter',
-                mode: 'lines+markers',
-                line: {color: '#ef4444', width: 2, dash: 'dash'},
-                marker: {size: 8, symbol: 'circle'}
-            };
-
-            const traceActual = {
-                x: anos,
-                y: acum_actual,
-                name: 'Tu Configuración Actual (' + elPumpEff.value + '% Efic.)',
-                type: 'scatter',
-                mode: 'lines+markers',
-                line: {color: '#10b981', width: 4},
-                marker: {size: 10, symbol: 'diamond'}
+            const trace = {
+                x: [
+                    `Bomba Horizontal<br>(${elPumpEffHoriz.value}% Efic.)`, 
+                    `Bomba Vertical<br>(${elPumpEffVert.value}% Efic.)`
+                ],
+                y: [Costo_xa_horiz, Costo_xa_vert],
+                type: 'bar',
+                text: [
+                    '$' + Costo_xa_horiz.toLocaleString('en-US', {maximumFractionDigits:0}),
+                    '$' + Costo_xa_vert.toLocaleString('en-US', {maximumFractionDigits:0})
+                ],
+                textposition: 'auto',
+                marker: {
+                    color: ['#3b82f6', '#10b981'], // Azul (Horizontal), Verde (Vertical)
+                    opacity: 0.9,
+                    line: { width: 0 }
+                }
             };
 
             const layout = {
                 title: {
-                    text: 'Ahorro Proyectado a 10 Años: <b>$' + ahorro_10_anos.toLocaleString('en-US', {maximumFractionDigits:0}) + ' USD</b>',
-                    font: {size: 18, color: '#1e293b'},
+                    text: `Ahorro por usar Turbina Vertical: <b>$${ahorro_upgrade.toLocaleString('en-US', {maximumFractionDigits:0})} USD</b> en ${anos_proy} Años`,
+                    font: {size: 18, color: '#10b981'},
                     y: 0.95
                 },
                 xaxis: {
-                    title: 'Años de Operación Acumulados', 
-                    dtick: 1,
-                    gridcolor: '#f1f5f9'
+                    title: '',
+                    tickfont: { size: 13, color: '#475569' }
                 },
                 yaxis: {
-                    title: 'Gasto de Energía Acumulado (USD)', 
+                    title: `Gasto de Energía (USD a ${anos_proy} años)`, 
                     tickprefix: '$',
                     gridcolor: '#f1f5f9'
                 },
-                margin: {l: 70, r: 30, t: 80, b: 80},
-                hovermode: 'x unified',
+                margin: {l: 70, r: 30, t: 80, b: 60},
                 plot_bgcolor: 'rgba(0,0,0,0)',
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                legend: {
-                    orientation: 'h', 
-                    y: -0.2,
-                    x: 0.5, 
-                    xanchor: 'center',
-                    font: { size: 13 }
-                }
+                paper_bgcolor: 'rgba(0,0,0,0)'
             };
 
             const config = { responsive: true, displayModeBar: false };
-            Plotly.react('opexChart', [traceMala, traceActual], layout, config);
+            Plotly.react('opexChart', [trace], layout, config);
         }
 
         // Listeners Globales
-        [elPumpEff, elMotorEff, elTariff, elDiasAno, elFuelPrice, elFuelCons].forEach(el => {
+        [elPumpEffHoriz, elPumpEffVert, elMotorEff, elTariff, elDiasAno, elAnosProy, elFuelPrice, elFuelCons].forEach(el => {
             el.addEventListener('input', calcularYActualizar);
             if(el.tagName === 'SELECT') el.addEventListener('change', calcularYActualizar);
         });
@@ -542,9 +544,11 @@
         function copiarEnlace() {
             const state = {
                 turnos: turnos,
-                pumpEff: elPumpEff.value,
+                pumpEffHoriz: elPumpEffHoriz.value,
+                pumpEffVert: elPumpEffVert.value,
                 motorEff: elMotorEff.value,
                 diasAno: elDiasAno.value,
+                anosProy: elAnosProy.value,
                 energySource: elEnergySource.value,
                 tariff: elTariff.value,
                 fuelPrice: elFuelPrice.value,
@@ -583,9 +587,11 @@
                 try {
                     const state = JSON.parse(atob(dataParam));
                     if (state.turnos) turnos = state.turnos;
-                    if (state.pumpEff) { elPumpEff.value = state.pumpEff; elPumpEffVal.innerText = state.pumpEff + '%'; }
+                    if (state.pumpEffHoriz) { elPumpEffHoriz.value = state.pumpEffHoriz; elPumpEffHorizVal.innerText = state.pumpEffHoriz + '%'; }
+                    if (state.pumpEffVert) { elPumpEffVert.value = state.pumpEffVert; elPumpEffVertVal.innerText = state.pumpEffVert + '%'; }
                     if (state.motorEff) elMotorEff.value = state.motorEff;
                     if (state.diasAno) elDiasAno.value = state.diasAno;
+                    if (state.anosProy) elAnosProy.value = state.anosProy;
                     
                     if (state.energySource) elEnergySource.value = state.energySource;
                     if (state.tariff) elTariff.value = state.tariff;
@@ -596,7 +602,7 @@
                 }
             }
             
-            toggleEnergyInputs(); // Asegurar que la vista coincida con la selección
+            toggleEnergyInputs(); 
             renderTurnos();
             calcularYActualizar();
         });
