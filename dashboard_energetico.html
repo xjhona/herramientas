@@ -67,23 +67,23 @@
                 <!-- Turnos de Operación -->
                 <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
                     <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                        <i class="ph ph-clock text-blue-600 text-xl"></i> Turnos de Operación
-                    </h3>
-                    <div class="flex gap-2">
-                        <button onclick="copiarEnlace()" class="flex items-center gap-1 text-xs bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-bold hover:bg-slate-300 transition-colors shadow-sm" title="Guardar configuración en un enlace">
-                            <i class="ph ph-link font-bold"></i> Compartir
-                        </button>
-                        <button onclick="addTurno()" class="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-200 transition-colors shadow-sm">
-                            <i class="ph ph-plus font-bold"></i> Añadir Turno
-                        </button>
+                        <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                            <i class="ph ph-clock text-blue-600 text-xl"></i> Turnos de Operación
+                        </h3>
+                        <div class="flex gap-2">
+                            <button onclick="copiarEnlace()" class="flex items-center gap-1 text-xs bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-bold hover:bg-slate-300 transition-colors shadow-sm" title="Guardar configuración en un enlace">
+                                <i class="ph ph-link font-bold"></i> Compartir
+                            </button>
+                            <button onclick="addTurno()" class="flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-200 transition-colors shadow-sm">
+                                <i class="ph ph-plus font-bold"></i> Añadir Turno
+                            </button>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Contenedor de la lista dinámica de turnos -->
-                <div id="turnos-list" class="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2 pb-2">
-                    <!-- Los turnos se inyectan aquí vía JS -->
-                </div>
+                    <!-- Contenedor de la lista dinámica de turnos -->
+                    <div id="turnos-list" class="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2 pb-2">
+                        <!-- Los turnos se inyectan aquí vía JS -->
+                    </div>
                 </div>
 
                 <!-- Eficiencias y Tarifas Globales -->
@@ -117,18 +117,43 @@
                     
                     <hr class="border-slate-200">
 
+                    <!-- SECCIÓN DINÁMICA DE ENERGÍA -->
                     <div>
                         <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <i class="ph ph-calendar text-green-600 text-xl"></i> Operación y Tarifa
+                            <i class="ph ph-gas-pump text-green-600 text-xl"></i> Fuente de Energía
                         </h3>
-                        <div class="grid grid-cols-2 gap-4">
+                        
+                        <div class="space-y-4">
                             <div>
-                                <label class="block text-xs text-slate-500 font-bold uppercase mb-1">Días / Año</label>
-                                <input type="number" id="dias-ano" value="300" step="1" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none font-mono">
+                                <select id="energy-source" onchange="toggleEnergyInputs()" class="w-full bg-slate-800 text-white font-bold rounded-lg p-2.5 border border-slate-700 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none">
+                                    <option value="grid">Red Eléctrica (kWh)</option>
+                                    <option value="diesel">Generador Diésel (Petróleo)</option>
+                                </select>
                             </div>
-                            <div>
-                                <label class="block text-xs text-slate-500 font-bold uppercase mb-1">Costo ($/kWh)</label>
-                                <input type="number" id="tariff" value="0.09" step="0.01" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none font-mono">
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs text-slate-500 font-bold uppercase mb-1">Días / Año</label>
+                                    <input type="number" id="dias-ano" value="300" step="1" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none font-mono">
+                                </div>
+                                
+                                <!-- Controles Red Eléctrica -->
+                                <div id="container-grid" class="block">
+                                    <label class="block text-xs text-slate-500 font-bold uppercase mb-1">Tarifa ($/kWh)</label>
+                                    <input type="number" id="tariff" value="0.09" step="0.01" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none font-mono">
+                                </div>
+                            </div>
+
+                            <!-- Controles Generador Diésel (Ocultos por defecto) -->
+                            <div id="container-diesel" class="hidden grid grid-cols-2 gap-4 pt-2 border-t border-slate-200">
+                                <div>
+                                    <label class="block text-xs text-slate-500 font-bold uppercase mb-1">Costo Diésel ($/Gal)</label>
+                                    <input type="number" id="fuel-price" value="4.50" step="0.1" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-slate-500 font-bold uppercase mb-1" title="Consumo específico del generador (Galones consumidos por cada kWh generado)">Consumo (Gal/kWh)</label>
+                                    <input type="number" id="fuel-cons" value="0.075" step="0.005" class="w-full bg-white text-slate-800 rounded-lg p-2.5 border border-slate-300 shadow-sm focus:ring-2 focus:ring-green-500 focus:outline-none font-mono">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -139,7 +164,7 @@
             <!-- Resultados y Gráficos Derecha -->
             <div class="lg:col-span-8 space-y-6">
                 
-                <!-- Tarjetas de Resultados KPI (Ahora 3 columnas) -->
+                <!-- Tarjetas de Resultados KPI -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-orange-500 relative overflow-hidden">
                         <i class="ph ph-clock text-4xl text-orange-100 absolute -bottom-2 -right-2"></i>
@@ -149,17 +174,17 @@
                     </div>
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-blue-500 relative overflow-hidden">
-                        <i class="ph ph-lightning text-4xl text-blue-100 absolute -bottom-2 -right-2"></i>
-                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wide">Demanda de Energía Diaria</p>
-                        <p class="text-2xl font-black text-slate-800 mt-1" id="kpi-kwh-dia">-- kWh</p>
-                        <p class="text-[10px] text-slate-400 mt-1 leading-tight">Consumo estimado por día de riego</p>
+                        <i id="kpi-energy-icon" class="ph ph-lightning text-4xl text-blue-100 absolute -bottom-2 -right-2"></i>
+                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wide" id="kpi-energy-title">Demanda de Energía Diaria</p>
+                        <p class="text-2xl font-black text-slate-800 mt-1" id="kpi-energy-val">-- kWh</p>
+                        <p class="text-[10px] text-slate-400 mt-1 leading-tight" id="kpi-energy-sub">Consumo estimado por día</p>
                     </div>
                     
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-green-500 relative overflow-hidden">
                         <i class="ph ph-currency-dollar text-4xl text-green-100 absolute -bottom-2 -right-2"></i>
-                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wide">OPEX (Factura Anual)</p>
+                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wide">OPEX (Gasto Anual)</p>
                         <p class="text-2xl font-black text-green-600 mt-1" id="kpi-cost">$--</p>
-                        <p class="text-[10px] text-slate-400 mt-1 leading-tight">Costo directo estimado anual</p>
+                        <p class="text-[10px] text-slate-400 mt-1 leading-tight" id="kpi-cost-sub">Costo directo estimado anual</p>
                     </div>
                 </div>
 
@@ -212,8 +237,13 @@
         const elPumpEff = document.getElementById('pumpEff');
         const elPumpEffVal = document.getElementById('pumpEffVal');
         const elMotorEff = document.getElementById('motorEff');
-        const elTariff = document.getElementById('tariff');
         const elDiasAno = document.getElementById('dias-ano');
+        
+        // Elementos Energía
+        const elEnergySource = document.getElementById('energy-source');
+        const elTariff = document.getElementById('tariff');
+        const elFuelPrice = document.getElementById('fuel-price');
+        const elFuelCons = document.getElementById('fuel-cons');
 
         // Elementos UI: Salidas
         const outHP = document.getElementById('suggested-hp');
@@ -222,8 +252,12 @@
         
         // KPIs
         const kpiTime = document.getElementById('kpi-time');
-        const kpiKwhDia = document.getElementById('kpi-kwh-dia');
+        const kpiEnergyTitle = document.getElementById('kpi-energy-title');
+        const kpiEnergyVal = document.getElementById('kpi-energy-val');
+        const kpiEnergySub = document.getElementById('kpi-energy-sub');
+        const kpiEnergyIcon = document.getElementById('kpi-energy-icon');
         const kpiCost = document.getElementById('kpi-cost');
+        const kpiCostSub = document.getElementById('kpi-cost-sub');
 
         const gravedad = 9.81;
         const ef_vfd = 0.97; // Eficiencia promedio de un Variador de Frecuencia
@@ -235,6 +269,14 @@
             { id: 1, q: 200, h: 88, qty: 3, horas_dia: 4 },
             { id: 2, q: 150, h: 95, qty: 2, horas_dia: 6 } 
         ];
+
+        // Alternar vistas según la fuente de energía
+        function toggleEnergyInputs() {
+            const isGrid = elEnergySource.value === 'grid';
+            document.getElementById('container-grid').style.display = isGrid ? 'block' : 'none';
+            document.getElementById('container-diesel').style.display = isGrid ? 'none' : 'grid';
+            calcularYActualizar();
+        }
 
         // Función para renderizar el HTML de la lista de turnos
         function renderTurnos() {
@@ -279,7 +321,7 @@
                 container.appendChild(card);
             });
 
-            // Re-asignar eventos a los inputs generados
+            // Re-asignar eventos
             document.querySelectorAll('.turno-input').forEach(input => {
                 input.addEventListener('input', (e) => {
                     const id = parseInt(e.target.dataset.id);
@@ -296,26 +338,16 @@
         // Operaciones de Lista de Turnos
         function addTurno() {
             const newId = turnos.length > 0 ? Math.max(...turnos.map(t => t.id)) + 1 : 1;
-            // Clonar datos del último turno para que sea más fácil al usuario
             const lastTurno = turnos.length > 0 ? turnos[turnos.length - 1] : { q: 200, h: 88, qty: 3, horas_dia: 4 };
-            
-            turnos.push({ 
-                id: newId, 
-                q: lastTurno.q, 
-                h: lastTurno.h, 
-                qty: lastTurno.qty, 
-                horas_dia: lastTurno.horas_dia 
-            });
+            turnos.push({ id: newId, q: lastTurno.q, h: lastTurno.h, qty: lastTurno.qty, horas_dia: lastTurno.horas_dia });
             renderTurnos();
             calcularYActualizar();
-            
-            // Scroll hacia abajo
             const list = document.getElementById('turnos-list');
             list.scrollTop = list.scrollHeight;
         }
 
         function removeTurno(id) {
-            if (turnos.length <= 1) return; // Prevenir borrar el último
+            if (turnos.length <= 1) return; 
             turnos = turnos.filter(t => t.id !== id);
             renderTurnos();
             calcularYActualizar();
@@ -323,15 +355,19 @@
 
         // Motor de Cálculo Principal
         function calcularYActualizar() {
-            // Valores Globales
             const ef_bomba = parseFloat(elPumpEff.value) / 100;
             const ef_motor = parseFloat(elMotorEff.value) / 100;
-            const tarifa = parseFloat(elTariff.value) || 0;
             const dias_ano = parseFloat(elDiasAno.value) || 0;
+            
+            // Fuentes de energía
+            const isGrid = elEnergySource.value === 'grid';
+            const tarifa_kwh = parseFloat(elTariff.value) || 0;
+            const precio_galon = parseFloat(elFuelPrice.value) || 0;
+            const consumo_gal_kwh = parseFloat(elFuelCons.value) || 0;
+
             elPumpEffVal.innerText = elPumpEff.value + '%';
 
             let max_eje_kw_per_pump = 0; 
-            
             let total_horas_dia = 0;
             let energia_diaria_total_kwh = 0;
             let energia_diaria_mala_kwh = 0; 
@@ -345,31 +381,24 @@
             // Recorrer todos los turnos y acumular valores diarios
             turnos.forEach((turno, index) => {
                 const Q_m3s = turno.q / 1000;
-                
-                // 1. Acumular Horas de Riego Diario
                 total_horas_dia += turno.horas_dia;
 
-                // 2. Físico / Mecánico
-                const P_hidraulica_bomba = (gravedad * Q_m3s * turno.h) / 1.0; // kW por bomba
+                // Físico / Mecánico
+                const P_hidraulica_bomba = (gravedad * Q_m3s * turno.h) / 1.0; 
                 const P_eje_bomba_kw = P_hidraulica_bomba / ef_bomba; 
                 
-                // Buscar el punto de operación más demandante para el motor
                 if (P_eje_bomba_kw > max_eje_kw_per_pump) {
                     max_eje_kw_per_pump = P_eje_bomba_kw;
                 }
 
-                // 3. Eléctrico (Tu configuración)
+                // Eléctrico
                 const P_electrica_bomba = P_eje_bomba_kw / (ef_motor * ef_vfd);
                 const P_total_turno_kw = P_electrica_bomba * turno.qty;
                 
-                // Mostrar potencia instantánea consumida en la tarjeta del turno (en HP)
                 const P_eje_bomba_hp = P_eje_bomba_kw * 1.34102;
                 const etiquetaHp = document.getElementById(`hp-turno-${turno.id}`);
-                if (etiquetaHp) {
-                    etiquetaHp.innerText = P_eje_bomba_hp.toFixed(1) + ' HP/bomba';
-                }
+                if (etiquetaHp) etiquetaHp.innerText = P_eje_bomba_hp.toFixed(1) + ' HP/bomba';
 
-                // Agregar fila a la tabla resumen
                 const total_hp_turno = P_eje_bomba_hp * turno.qty;
                 filas_tabla += `
                     <tr class="hover:bg-slate-50 transition-colors">
@@ -384,10 +413,8 @@
                     </tr>
                 `;
 
-                // Consumo Diario de este turno (kWh/día)
                 energia_diaria_total_kwh += (P_total_turno_kw * turno.horas_dia);
 
-                // 4. Eléctrico (Equipo ineficiente para el gráfico)
                 const P_elec_mala_bomba = (P_hidraulica_bomba / ef_b_mala) / (ef_m_mala * ef_vfd);
                 energia_diaria_mala_kwh += (P_elec_mala_bomba * turno.qty * turno.horas_dia);
             });
@@ -395,16 +422,14 @@
             const tbody = document.getElementById('resumen-tbody');
             if (tbody) tbody.innerHTML = filas_tabla;
 
-            // Selección del motor sugerido basado en el requerimiento MÁXIMO (Factor de Servicio 1.15)
             const neededHP = (max_eje_kw_per_pump * 1.34102) * 1.15;
             let standardHP = standardMotorsHP.find(hp => hp >= neededHP);
-            if (!standardHP) standardHP = Math.ceil(neededHP); // Fallback
+            if (!standardHP) standardHP = Math.ceil(neededHP);
             const standardKW = standardHP * 0.7457;
 
-            // Animar la caja del motor si cambia
             if (standardHP !== lastSuggestedHP) {
                 motorBox.classList.remove('update-flash');
-                void motorBox.offsetWidth; // Trigger reflow
+                void motorBox.offsetWidth; 
                 motorBox.classList.add('update-flash');
                 lastSuggestedHP = standardHP;
             }
@@ -412,18 +437,43 @@
             outHP.innerText = standardHP + ' HP';
             outKW.innerText = '(' + standardKW.toFixed(0) + ' kW)';
 
-            // Cálculos Financieros Globales (Basados en Días/Año)
-            const energia_anual_total_kwh = energia_diaria_total_kwh * dias_ano;
-            const energia_anual_mala_kwh = energia_diaria_mala_kwh * dias_ano;
-            const Costo_anual_usd = energia_anual_total_kwh * tarifa;
+            // Cálculos Financieros Globales (Basados en Días/Año y Tipo de Energía)
+            let Costo_anual_usd = 0;
+            let Costo_anual_mala = 0;
 
-            // Actualizar KPIs (Tarjetas)
+            if (isGrid) {
+                // Cálculo de Red Eléctrica
+                const energia_anual_total_kwh = energia_diaria_total_kwh * dias_ano;
+                Costo_anual_usd = energia_anual_total_kwh * tarifa_kwh;
+                Costo_anual_mala = (energia_diaria_mala_kwh * dias_ano) * tarifa_kwh;
+                
+                kpiEnergyTitle.innerText = "Demanda Eléctrica Diaria";
+                kpiEnergyVal.innerText = energia_diaria_total_kwh.toLocaleString('en-US', {maximumFractionDigits: 1}) + ' kWh';
+                kpiEnergySub.innerText = "Consumo eléctrico por día de riego";
+                kpiEnergyIcon.className = "ph ph-lightning text-4xl text-blue-100 absolute -bottom-2 -right-2";
+                
+                kpiCostSub.innerText = "Factura eléctrica estimada anual";
+
+            } else {
+                // Cálculo de Generador Diésel
+                const galones_diarios_total = energia_diaria_total_kwh * consumo_gal_kwh;
+                const galones_diarios_mala = energia_diaria_mala_kwh * consumo_gal_kwh;
+                
+                Costo_anual_usd = (galones_diarios_total * dias_ano) * precio_galon;
+                Costo_anual_mala = (galones_diarios_mala * dias_ano) * precio_galon;
+                
+                kpiEnergyTitle.innerText = "Consumo Diésel Diario";
+                kpiEnergyVal.innerText = galones_diarios_total.toLocaleString('en-US', {maximumFractionDigits: 1}) + ' Gal';
+                kpiEnergySub.innerText = "Combustible por día de riego";
+                kpiEnergyIcon.className = "ph ph-gas-pump text-4xl text-blue-100 absolute -bottom-2 -right-2";
+                
+                kpiCostSub.innerText = "Costo de combustible estimado anual";
+            }
+
             kpiTime.innerText = total_horas_dia.toFixed(1) + ' hrs';
-            kpiKwhDia.innerText = energia_diaria_total_kwh.toLocaleString('en-US', {maximumFractionDigits: 1}) + ' kWh';
             kpiCost.innerText = '$' + Costo_anual_usd.toLocaleString('en-US', {maximumFractionDigits: 0});
 
             // Generar datos para el gráfico comparativo
-            const Costo_anual_mala = energia_anual_mala_kwh * tarifa;
             const anos = Array.from({length: 10}, (_, i) => i + 1);
             const acum_actual = anos.map(a => Costo_anual_usd * a);
             const acum_mala = anos.map(a => Costo_anual_mala * a);
@@ -461,7 +511,7 @@
                     gridcolor: '#f1f5f9'
                 },
                 yaxis: {
-                    title: 'Gasto en Factura Eléctrica (USD)', 
+                    title: 'Gasto de Energía Acumulado (USD)', 
                     tickprefix: '$',
                     gridcolor: '#f1f5f9'
                 },
@@ -483,7 +533,7 @@
         }
 
         // Listeners Globales
-        [elPumpEff, elMotorEff, elTariff, elDiasAno].forEach(el => {
+        [elPumpEff, elMotorEff, elTariff, elDiasAno, elFuelPrice, elFuelCons].forEach(el => {
             el.addEventListener('input', calcularYActualizar);
             if(el.tagName === 'SELECT') el.addEventListener('change', calcularYActualizar);
         });
@@ -494,15 +544,16 @@
                 turnos: turnos,
                 pumpEff: elPumpEff.value,
                 motorEff: elMotorEff.value,
+                diasAno: elDiasAno.value,
+                energySource: elEnergySource.value,
                 tariff: elTariff.value,
-                diasAno: elDiasAno.value
+                fuelPrice: elFuelPrice.value,
+                fuelCons: elFuelCons.value
             };
-            // Convertimos el estado a Base64 para anexarlo a la URL
             const b64 = btoa(JSON.stringify(state));
             const url = new URL(window.location.href);
             url.searchParams.set('data', b64);
             
-            // Copiar al portapapeles
             const tempInput = document.createElement("input");
             tempInput.value = url.toString();
             document.body.appendChild(tempInput);
@@ -534,13 +585,18 @@
                     if (state.turnos) turnos = state.turnos;
                     if (state.pumpEff) { elPumpEff.value = state.pumpEff; elPumpEffVal.innerText = state.pumpEff + '%'; }
                     if (state.motorEff) elMotorEff.value = state.motorEff;
-                    if (state.tariff) elTariff.value = state.tariff;
                     if (state.diasAno) elDiasAno.value = state.diasAno;
+                    
+                    if (state.energySource) elEnergySource.value = state.energySource;
+                    if (state.tariff) elTariff.value = state.tariff;
+                    if (state.fuelPrice) elFuelPrice.value = state.fuelPrice;
+                    if (state.fuelCons) elFuelCons.value = state.fuelCons;
                 } catch (e) {
                     console.error("Error cargando configuración desde la URL:", e);
                 }
             }
             
+            toggleEnergyInputs(); // Asegurar que la vista coincida con la selección
             renderTurnos();
             calcularYActualizar();
         });
