@@ -50,12 +50,15 @@
                 largoLote: 100,
                 anchoLote: 100,
                 areaTotal: 1,
-                hilerasIniciales: 4, // <-- NUEVO: Hileras en el primer bloque
+                hilerasIniciales: 4, 
                 hilerasPorBloque: 8,
                 frecuenciaCortinas: 4 
             });
 
             const [zoom, setZoom] = useState(35);
+            // ESTADO PARA EL MODO DE VISTA: 'isometric', 'top', 'profile'
+            const [viewMode, setViewMode] = useState('isometric'); 
+            
             const canvasRef = useRef(null);
             const containerRef = useRef(null);
 
@@ -65,7 +68,6 @@
                 const dHileras = Math.max(0.1, params.distHileras);
                 const dPlantas = Math.max(0.1, params.distPlantas);
 
-                // La densidad se calcula en base al bloque principal (el que más se repite en una Hectárea)
                 const espaciosEntreHileras = hilerasBloque - 1;
                 const anchoTotalBloque = (dHileras * espaciosEntreHileras) + params.anchoCalle;
                 const distPromedioHileras = anchoTotalBloque / hilerasBloque;
@@ -108,13 +110,26 @@
                 const width = rect.width;
                 const height = rect.height;
 
-                // Limpiar y Fondo
+                // Limpiar
                 ctx.clearRect(0, 0, width, height);
-                const gradient = ctx.createLinearGradient(0, 0, 0, height);
-                gradient.addColorStop(0, '#f0f4f8'); 
-                gradient.addColorStop(1, '#ffffff');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, width, height);
+                
+                // Fondo dependiendo de la vista
+                if (viewMode === 'profile') {
+                    // Cielo y Tierra para Perfil
+                    ctx.fillStyle = '#f0f8ff'; 
+                    ctx.fillRect(0, 0, width, height * 0.75); // Cielo
+                    ctx.fillStyle = '#e6d5c3'; 
+                    ctx.fillRect(0, height * 0.75, width, height * 0.25); // Tierra subsuelo
+                    ctx.strokeStyle = '#8D6E63'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(0, height * 0.75); ctx.lineTo(width, height * 0.75); ctx.stroke(); // Línea de suelo
+                } else {
+                    // Gradiente suave para Isométrica y Planta
+                    const gradient = ctx.createLinearGradient(0, 0, 0, height);
+                    gradient.addColorStop(0, '#f8fafc'); 
+                    gradient.addColorStop(1, '#ffffff');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, width, height);
+                }
 
                 if (params.distPlantas < 0.1 || params.distHileras < 0.1) {
                     ctx.fillStyle = "#94a3b8";
@@ -123,180 +138,220 @@
                     return; 
                 }
 
-                // Isométrico
-                const isoX = (x, y) => (x - y) * Math.cos(Math.PI / 6);
-                const isoY = (x, y) => (x + y) * Math.sin(Math.PI / 6);
-
-                const centerX = width / 2;
-                const centerY = height / 5;
+                // Configuración de visualización
+                const viewWidthMeters = 30 * (35/zoom); 
+                const viewDepthMeters = 24 * (35/zoom);
                 const scale = zoom;
 
+                // Centro de la pantalla según la vista
+                const centerX = width / 2;
+                const centerY = viewMode === 'top' ? height / 2 : height / 5;
+                
+                // Motor de Proyección
+                const getCoords = (x, y) => {
+                    if (viewMode === 'isometric') {
+                        const isoX = (x - y) * Math.cos(Math.PI / 6);
+                        const isoY = (x + y) * Math.sin(Math.PI / 6);
+                        return { x: centerX + isoX * scale, y: centerY + isoY * scale };
+                    } else if (viewMode === 'top') {
+                        // Centrar el plano 2D
+                        const offsetX = centerX - (viewWidthMeters * scale)/3;
+                        const offsetY = centerY - (viewDepthMeters * scale)/2;
+                        return { x: offsetX + x * scale, y: offsetY + y * scale };
+                    } else if (viewMode === 'profile') {
+                        // Vista lateral transversal (Corte X)
+                        const offsetX = centerX - (viewWidthMeters * scale)/3;
+                        return { x: offsetX + x * scale, y: height * 0.75 }; // Suelo fijo
+                    }
+                };
+
                 const drawElement = (x, y, type) => {
-                    const screenX = centerX + isoX(x * scale, y * scale);
-                    const screenY = centerY + isoY(x * scale, y * scale);
+                    const coords = getCoords(x, y);
+                    const screenX = coords.x;
+                    const screenY = coords.y;
+                    
                     if (screenX < -100 || screenX > width + 100 || screenY < -100 || screenY > height + 100) return;
 
                     ctx.save();
                     ctx.translate(screenX, screenY);
                     const elementScale = Math.max(0.6, scale / 35); 
+                    ctx.scale(elementScale, elementScale);
 
-                    if (type === 'pot') {
-                        ctx.scale(elementScale, elementScale);
-                        ctx.fillStyle = 'rgba(0,0,0,0.15)';
-                        ctx.beginPath(); ctx.ellipse(0, 4, 8, 4, 0, 0, 2 * Math.PI); ctx.fill();
-                        ctx.fillStyle = '#5D4037'; 
-                        ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.lineTo(4.5, 9); ctx.lineTo(-4.5, 9); ctx.closePath(); ctx.fill();
-                        ctx.fillStyle = '#3E2723';
-                        ctx.beginPath(); ctx.ellipse(0, 0, 6, 2.5, 0, 0, 2 * Math.PI); ctx.fill();
-                        ctx.fillStyle = '#1B5E20'; 
-                        ctx.beginPath(); ctx.arc(-3, -6, 6, 0, 2 * Math.PI); ctx.fill();
-                        ctx.beginPath(); ctx.arc(3, -6, 6, 0, 2 * Math.PI); ctx.fill();
-                        ctx.beginPath(); ctx.arc(0, -9, 7, 0, 2 * Math.PI); ctx.fill();
-                        ctx.fillStyle = '#2E7D32'; 
-                        ctx.beginPath(); ctx.arc(-2, -8, 5, 0, 2 * Math.PI); ctx.fill();
-                        ctx.beginPath(); ctx.arc(2, -8, 5, 0, 2 * Math.PI); ctx.fill();
-                        ctx.beginPath(); ctx.arc(0, -11, 5, 0, 2 * Math.PI); ctx.fill();
-                        ctx.fillStyle = '#3F51B5'; 
-                        const berries = [{x:-2, y:-6}, {x:2, y:-10}, {x:4, y:-5}, {x:-3, y:-11}, {x:0, y:-7}];
-                        berries.forEach(b => {
-                            ctx.beginPath(); ctx.arc(b.x, b.y, 1.8, 0, 2 * Math.PI); ctx.fill();
-                            ctx.fillStyle = '#9FA8DA';
-                            ctx.beginPath(); ctx.arc(b.x - 0.5, b.y - 0.5, 0.5, 0, 2 * Math.PI); ctx.fill();
+                    if (viewMode === 'isometric') {
+                        if (type === 'pot') {
+                            ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.beginPath(); ctx.ellipse(0, 4, 8, 4, 0, 0, 2 * Math.PI); ctx.fill();
+                            ctx.fillStyle = '#5D4037'; ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.lineTo(4.5, 9); ctx.lineTo(-4.5, 9); ctx.closePath(); ctx.fill();
+                            ctx.fillStyle = '#3E2723'; ctx.beginPath(); ctx.ellipse(0, 0, 6, 2.5, 0, 0, 2 * Math.PI); ctx.fill();
+                            ctx.fillStyle = '#1B5E20'; ctx.beginPath(); ctx.arc(-3, -6, 6, 0, 2 * Math.PI); ctx.fill();
+                            ctx.beginPath(); ctx.arc(3, -6, 6, 0, 2 * Math.PI); ctx.fill(); ctx.beginPath(); ctx.arc(0, -9, 7, 0, 2 * Math.PI); ctx.fill();
+                            ctx.fillStyle = '#2E7D32'; ctx.beginPath(); ctx.arc(-2, -8, 5, 0, 2 * Math.PI); ctx.fill();
+                            ctx.beginPath(); ctx.arc(2, -8, 5, 0, 2 * Math.PI); ctx.fill(); ctx.beginPath(); ctx.arc(0, -11, 5, 0, 2 * Math.PI); ctx.fill();
                             ctx.fillStyle = '#3F51B5'; 
-                        });
-                    } else if (type === 'mesh') {
-                        ctx.scale(elementScale, elementScale);
-                        const postHeight = 45;
-                        ctx.fillStyle = 'rgba(0,0,0,0.2)';
-                        ctx.beginPath(); ctx.ellipse(2, 0, 4, 2, 0, 0, 2 * Math.PI); ctx.fill();
-                        ctx.fillStyle = '#607D8B'; 
-                        ctx.fillRect(-2, -postHeight, 4, postHeight);
-                        const nextPostY = 25; const nextPostX = -14; 
-                        ctx.fillStyle = 'rgba(30, 30, 30, 0.6)'; 
-                        ctx.beginPath(); ctx.moveTo(0, -postHeight); ctx.lineTo(0, 0); ctx.lineTo(nextPostX, nextPostY); ctx.lineTo(nextPostX, nextPostY - postHeight); ctx.closePath(); ctx.fill();
-                        ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
-                        ctx.beginPath();
-                        ctx.moveTo(0, -postHeight); ctx.lineTo(nextPostX, nextPostY - 20);
-                        ctx.moveTo(0, -postHeight + 15); ctx.lineTo(nextPostX, nextPostY - 5);
-                        ctx.moveTo(0, -postHeight + 30); ctx.lineTo(nextPostX, nextPostY + 10);
-                        ctx.moveTo(nextPostX, nextPostY - postHeight); ctx.lineTo(0, -20);
-                        ctx.moveTo(nextPostX, nextPostY - postHeight + 15); ctx.lineTo(0, -5);
-                        ctx.stroke();
+                            const berries = [{x:-2, y:-6}, {x:2, y:-10}, {x:4, y:-5}, {x:-3, y:-11}, {x:0, y:-7}];
+                            berries.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 1.8, 0, 2 * Math.PI); ctx.fill(); ctx.fillStyle = '#9FA8DA'; ctx.beginPath(); ctx.arc(b.x - 0.5, b.y - 0.5, 0.5, 0, 2 * Math.PI); ctx.fill(); ctx.fillStyle = '#3F51B5'; });
+                        } else if (type === 'mesh') {
+                            const postHeight = 45;
+                            ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(2, 0, 4, 2, 0, 0, 2 * Math.PI); ctx.fill();
+                            ctx.fillStyle = '#607D8B'; ctx.fillRect(-2, -postHeight, 4, postHeight);
+                            const nextPostY = 25; const nextPostX = -14; 
+                            ctx.fillStyle = 'rgba(30, 30, 30, 0.6)'; ctx.beginPath(); ctx.moveTo(0, -postHeight); ctx.lineTo(0, 0); ctx.lineTo(nextPostX, nextPostY); ctx.lineTo(nextPostX, nextPostY - postHeight); ctx.closePath(); ctx.fill();
+                            ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1; ctx.beginPath();
+                            ctx.moveTo(0, -postHeight); ctx.lineTo(nextPostX, nextPostY - 20); ctx.moveTo(0, -postHeight + 15); ctx.lineTo(nextPostX, nextPostY - 5); ctx.moveTo(0, -postHeight + 30); ctx.lineTo(nextPostX, nextPostY + 10); ctx.moveTo(nextPostX, nextPostY - postHeight); ctx.lineTo(0, -20); ctx.moveTo(nextPostX, nextPostY - postHeight + 15); ctx.lineTo(0, -5); ctx.stroke();
+                        }
+                    } else if (viewMode === 'top') {
+                        if (type === 'pot') {
+                            ctx.fillStyle = '#4E342E'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, 2 * Math.PI); ctx.fill();
+                            ctx.fillStyle = '#2E7D32'; ctx.beginPath(); ctx.arc(0, 0, 10, 0, 2 * Math.PI); ctx.fill();
+                            ctx.fillStyle = '#3F51B5'; ctx.beginPath(); ctx.arc(-3, -3, 2, 0, 2*Math.PI); ctx.fill(); ctx.beginPath(); ctx.arc(4, 3, 2, 0, 2*Math.PI); ctx.fill();
+                        } else if (type === 'mesh') {
+                            ctx.fillStyle = '#607D8B'; ctx.fillRect(-3, -3, 6, 6); // Poste desde arriba
+                            ctx.fillStyle = 'rgba(50, 50, 50, 0.5)'; ctx.fillRect(-1, 0, 2, 2 * scale / elementScale); // Red proyectada
+                        }
+                    } else if (viewMode === 'profile') {
+                        if (type === 'pot') {
+                            // Maceta lateral
+                            ctx.fillStyle = '#3E2723'; ctx.fillRect(-7, -11, 14, 2); // Borde
+                            ctx.fillStyle = '#5D4037'; ctx.beginPath(); ctx.moveTo(-6, -9); ctx.lineTo(6, -9); ctx.lineTo(4.5, 0); ctx.lineTo(-4.5, 0); ctx.fill(); // Cuerpo
+                            // Arbusto lateral
+                            ctx.fillStyle = '#1B5E20'; ctx.beginPath(); ctx.arc(0, -18, 10, 0, 2*Math.PI); ctx.fill();
+                            ctx.fillStyle = '#2E7D32'; ctx.beginPath(); ctx.arc(0, -22, 8, 0, 2*Math.PI); ctx.fill();
+                        } else if (type === 'mesh') {
+                            // Poste lateral alto
+                            ctx.fillStyle = '#455A64'; ctx.fillRect(-2, -55, 4, 55);
+                            ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-55); ctx.stroke();
+                        }
                     }
                     ctx.restore();
                 };
 
-                const viewWidthMeters = 30 * (35/zoom); 
-                const viewDepthMeters = 24 * (35/zoom);
+                // Lógica de bucles para Perfil: Solo necesitamos UNA capa en Y para no redibujar 20 plantas en la misma coordenada
+                const yStepMesh = viewMode === 'profile' ? viewDepthMeters + 1 : 2;
+                const yStepPlant = viewMode === 'profile' ? viewDepthMeters + 1 : params.distPlantas;
 
                 // 1. Dibujar Cortina Perimetral
-                for (let y = 0; y < viewDepthMeters; y += 2) {
+                for (let y = 0; y < viewDepthMeters; y += yStepMesh) {
                     drawElement(-params.distCortina, y, 'mesh');
                 }
-                const labelX = centerX + isoX(-params.distCortina * scale, 0);
-                const labelY = centerY + isoY(-params.distCortina * scale, 0) - (60 * (scale/35));
-                ctx.fillStyle = '#333';
-                ctx.font = `bold ${Math.max(10, 12 * (scale/35))}px sans-serif`;
-                ctx.fillText("Malla Perimetral", labelX - 40, labelY);
+
+                // Etiqueta perimetral
+                const labelPerim = getCoords(-params.distCortina, viewMode === 'top' ? 0 : viewDepthMeters/4);
+                ctx.fillStyle = '#333'; ctx.font = `bold ${Math.max(10, 11 * (scale/35))}px sans-serif`;
+                if (viewMode === 'isometric') ctx.fillText("Malla Perimetral", labelPerim.x - 40, labelPerim.y - 60);
+                if (viewMode === 'top') ctx.fillText("Malla Perim.", labelPerim.x - 40, labelPerim.y - 15);
+                if (viewMode === 'profile') ctx.fillText("Malla Perim.", labelPerim.x - 35, labelPerim.y - 80);
 
                 // 2. Dibujar Plantas, Calles y Cortinas Internas
                 let currentX = 0;
-                
-                // LÓGICA REESTRUCTURADA: Contadores limpios
                 let rowsSinceLastStreet = 0;
-                let isFirstBlock = true; // Permite saber si estamos en el "borde"
+                let isFirstBlock = true; 
 
                 while (currentX < viewWidthMeters) {
                     
-                    // A. Dibujar la hilera de plantas actual
-                    for (let y = 0; y < viewDepthMeters; y += params.distPlantas) {
+                    for (let y = 0; y < viewDepthMeters; y += yStepPlant) {
                         drawElement(currentX, y, 'pot');
                     }
 
                     let stepToNextRow = params.distHileras;
-                    rowsSinceLastStreet++; // Avanzamos el contador de hileras
+                    rowsSinceLastStreet++; 
 
-                    // Determinamos cuántas hileras tiene el bloque actual
                     let targetRows = isFirstBlock ? params.hilerasIniciales : params.hilerasPorBloque;
 
-                    // B. Evaluar reglas topológicas
                     const isStreet = (rowsSinceLastStreet === targetRows);
                     const isWindbreak = !isStreet && (params.frecuenciaCortinas > 0 && rowsSinceLastStreet % params.frecuenciaCortinas === 0);
 
-                    // C. Aplicar reglas visuales hacia la siguiente hilera
                     if (isStreet) {
                         stepToNextRow = params.anchoCalle; 
-                        
                         const streetWidthVisual = stepToNextRow - 1; 
                         const streetCenterX = currentX + stepToNextRow/2;
                         
-                        const s_p1 = { x: streetCenterX - streetWidthVisual/2, y: 0 };
-                        const s_p2 = { x: streetCenterX + streetWidthVisual/2, y: 0 };
-                        const s_p3 = { x: streetCenterX + streetWidthVisual/2, y: viewDepthMeters };
-                        const s_p4 = { x: streetCenterX - streetWidthVisual/2, y: viewDepthMeters };
+                        const s_p1 = getCoords(streetCenterX - streetWidthVisual/2, 0);
+                        const s_p2 = getCoords(streetCenterX + streetWidthVisual/2, 0);
+                        const s_p3 = getCoords(streetCenterX + streetWidthVisual/2, viewDepthMeters);
+                        const s_p4 = getCoords(streetCenterX - streetWidthVisual/2, viewDepthMeters);
 
-                        ctx.beginPath();
-                        ctx.moveTo(centerX + isoX(s_p1.x*scale, s_p1.y*scale), centerY + isoY(s_p1.x*scale, s_p1.y*scale));
-                        ctx.lineTo(centerX + isoX(s_p2.x*scale, s_p2.y*scale), centerY + isoY(s_p2.x*scale, s_p2.y*scale));
-                        ctx.lineTo(centerX + isoX(s_p3.x*scale, s_p3.y*scale), centerY + isoY(s_p3.x*scale, s_p3.y*scale));
-                        ctx.lineTo(centerX + isoX(s_p4.x*scale, s_p4.y*scale), centerY + isoY(s_p4.x*scale, s_p4.y*scale));
-                        ctx.closePath();
-                        ctx.fillStyle = 'rgba(210, 180, 140, 0.3)'; ctx.fill();
-                        ctx.strokeStyle = 'rgba(210, 180, 140, 0.8)'; ctx.stroke();
+                        if (viewMode === 'profile') {
+                            ctx.fillStyle = 'rgba(210, 180, 140, 0.8)';
+                            ctx.fillRect(s_p1.x, s_p1.y, s_p2.x - s_p1.x, 8); // Grosor de calle
+                            
+                            if (currentX < viewWidthMeters) {
+                                ctx.fillStyle = '#8D6E63'; ctx.textAlign = 'center'; ctx.font = `italic ${Math.max(9, 11 * (scale/35))}px sans-serif`;
+                                ctx.fillText(`Calle Principal`, s_p1.x + (s_p2.x - s_p1.x)/2, s_p1.y + 20);
+                                ctx.fillText(`(${params.anchoCalle}m)`, s_p1.x + (s_p2.x - s_p1.x)/2, s_p1.y + 32);
+                                ctx.textAlign = 'left';
+                            }
+                        } else {
+                            ctx.beginPath(); ctx.moveTo(s_p1.x, s_p1.y); ctx.lineTo(s_p2.x, s_p2.y); ctx.lineTo(s_p3.x, s_p3.y); ctx.lineTo(s_p4.x, s_p4.y); ctx.closePath();
+                            ctx.fillStyle = 'rgba(210, 180, 140, 0.3)'; ctx.fill();
+                            ctx.strokeStyle = 'rgba(210, 180, 140, 0.8)'; ctx.stroke();
 
-                        if (currentX < viewWidthMeters) {
-                            const sX = centerX + isoX(streetCenterX * scale, viewDepthMeters/2 * scale);
-                            const sY = centerY + isoY(streetCenterX * scale, viewDepthMeters/2 * scale);
-                            ctx.fillStyle = '#8D6E63';
-                            ctx.font = `italic ${Math.max(9, 11 * (scale/35))}px sans-serif`;
-                            ctx.fillText(`Calle Principal`, sX - 30, sY);
-                            ctx.fillText(`(${params.anchoCalle}m)`, sX - 15, sY + 12);
+                            if (currentX < viewWidthMeters) {
+                                const sCenter = getCoords(streetCenterX, viewDepthMeters/2);
+                                ctx.fillStyle = '#8D6E63'; ctx.font = `italic ${Math.max(9, 11 * (scale/35))}px sans-serif`;
+                                ctx.fillText(`Calle Principal`, sCenter.x - 30, sCenter.y);
+                                ctx.fillText(`(${params.anchoCalle}m)`, sCenter.x - 15, sCenter.y + 12);
+                            }
                         }
                         
-                        // Reseteamos parámetros porque empezamos un nuevo bloque regular
                         rowsSinceLastStreet = 0;
                         isFirstBlock = false;
 
                     } else if (isWindbreak) {
-                        // Cortina interna dibujada exactamente en medio de las hileras de macetas
                         const cortinaX = currentX + stepToNextRow/2;
-                        for (let y = 0; y < viewDepthMeters; y += 2) {
+                        for (let y = 0; y < viewDepthMeters; y += yStepMesh) {
                             drawElement(cortinaX, y, 'mesh');
                         }
                         
                         if (cortinaX < viewWidthMeters) {
-                            const cX = centerX + isoX(cortinaX * scale, viewDepthMeters/2 * scale);
-                            const cY = centerY + isoY(cortinaX * scale, viewDepthMeters/2 * scale);
-                            ctx.fillStyle = '#1B5E20';
-                            ctx.font = `bold ${Math.max(9, 11 * (scale/35))}px sans-serif`;
-                            ctx.fillText(`Cortina Central`, cX - 15, cY - 20);
+                            const cCoords = getCoords(cortinaX, viewMode === 'top' ? 0 : viewDepthMeters/2);
+                            ctx.fillStyle = '#1B5E20'; ctx.font = `bold ${Math.max(9, 11 * (scale/35))}px sans-serif`;
+                            if (viewMode === 'profile') ctx.fillText(`Cortina`, cCoords.x - 20, cCoords.y - 80);
+                            else ctx.fillText(`Cortina Central`, cCoords.x - 15, cCoords.y - (viewMode==='top'?15:20));
                         }
                     }
-
                     currentX += stepToNextRow;
                 }
 
-                // Cotas
+                // --- COTAS (Métricas) ---
                 const fontSize = Math.max(9, 11 * (scale/35));
                 ctx.font = `bold ${fontSize}px sans-serif`;
 
-                const pStart = { x: centerX + isoX(0,0), y: centerY + isoY(0,0)};
-                const pEnd = { x: centerX + isoX(0, params.distPlantas*scale), y: centerY + isoY(0, params.distPlantas*scale)};
-                ctx.strokeStyle = '#E91E63'; ctx.lineWidth = 2;
-                ctx.beginPath(); ctx.moveTo(pStart.x + 20, pStart.y); ctx.lineTo(pEnd.x + 20, pEnd.y); ctx.stroke();
-                ctx.fillStyle = '#E91E63'; ctx.fillText(`${params.distPlantas}m`, pEnd.x + 25, pEnd.y - 5);
+                // Cota Plantas (Oculta en vista perfil porque no hay profundidad)
+                if (viewMode !== 'profile') {
+                    const pStart = getCoords(0, 0);
+                    const pEnd = getCoords(0, params.distPlantas);
+                    ctx.strokeStyle = '#E91E63'; ctx.lineWidth = 2; ctx.beginPath();
+                    if (viewMode === 'top') {
+                        ctx.moveTo(pStart.x - 20, pStart.y); ctx.lineTo(pEnd.x - 20, pEnd.y); ctx.stroke();
+                        ctx.fillStyle = '#E91E63'; ctx.fillText(`${params.distPlantas}m`, pEnd.x - 50, pStart.y + (pEnd.y-pStart.y)/2 + 4);
+                    } else {
+                        ctx.moveTo(pStart.x + 20, pStart.y); ctx.lineTo(pEnd.x + 20, pEnd.y); ctx.stroke();
+                        ctx.fillStyle = '#E91E63'; ctx.fillText(`${params.distPlantas}m`, pEnd.x + 25, pEnd.y - 5);
+                    }
+                }
 
-                const hStart = { x: centerX + isoX(0,0), y: centerY + isoY(0,0)};
-                const hEnd = { x: centerX + isoX(params.distHileras*scale, 0), y: centerY + isoY(params.distHileras*scale, 0)};
-                ctx.strokeStyle = '#2196F3';
-                ctx.beginPath(); ctx.moveTo(hStart.x, hStart.y + 15); ctx.lineTo(hEnd.x, hEnd.y + 15); ctx.stroke();
-                ctx.fillStyle = '#2196F3'; ctx.fillText(`${params.distHileras}m`, hStart.x + (hEnd.x - hStart.x)/2 - 10, hStart.y + 30);
+                // Cota Hileras
+                const hStart = getCoords(0, 0);
+                const hEnd = getCoords(params.distHileras, 0);
+                ctx.strokeStyle = '#2196F3'; ctx.lineWidth = 2; ctx.beginPath();
+                
+                if (viewMode === 'profile') {
+                    ctx.moveTo(hStart.x, hStart.y + 45); ctx.lineTo(hEnd.x, hEnd.y + 45); ctx.stroke(); 
+                    ctx.fillStyle = '#2196F3'; ctx.textAlign = 'center';
+                    ctx.fillText(`${params.distHileras}m`, hStart.x + (hEnd.x - hStart.x)/2, hStart.y + 60); ctx.textAlign = 'left';
+                } else if (viewMode === 'top') {
+                    ctx.moveTo(hStart.x, hStart.y - 20); ctx.lineTo(hEnd.x, hEnd.y - 20); ctx.stroke(); 
+                    ctx.fillStyle = '#2196F3'; ctx.textAlign = 'center';
+                    ctx.fillText(`${params.distHileras}m`, hStart.x + (hEnd.x - hStart.x)/2, hStart.y - 25); ctx.textAlign = 'left';
+                } else {
+                    ctx.moveTo(hStart.x, hStart.y + 15); ctx.lineTo(hEnd.x, hEnd.y + 15); ctx.stroke();
+                    ctx.fillStyle = '#2196F3'; ctx.fillText(`${params.distHileras}m`, hStart.x + (hEnd.x - hStart.x)/2 - 10, hStart.y + 30);
+                }
             };
 
             useEffect(() => {
                 const timeoutId = setTimeout(() => draw(), 50);
                 return () => clearTimeout(timeoutId);
-            }, [params, zoom]);
+            }, [params, zoom, viewMode]); // Añadido viewMode como dependencia
 
             useEffect(() => {
                 const handleResize = () => window.requestAnimationFrame(draw);
@@ -427,9 +482,29 @@
 
                         {/* Visualización */}
                         <div ref={containerRef} className="flex-1 bg-slate-100 relative overflow-hidden flex items-center justify-center p-0">
-                            <div className="absolute top-4 left-4 z-10 bg-white/80 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-slate-500 border border-slate-200 shadow-sm pointer-events-none">
-                                Vista Isométrica Interactiva
+                            
+                            {/* NUEVO: Controles de Vista */}
+                            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex bg-white/90 backdrop-blur rounded-lg shadow-md p-1 border border-slate-200">
+                                <button 
+                                    onClick={() => setViewMode('isometric')} 
+                                    className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${viewMode === 'isometric' ? 'bg-purple-100 text-purple-700' : 'text-slate-500 hover:bg-slate-50'}`}
+                                >
+                                    Isométrica
+                                </button>
+                                <button 
+                                    onClick={() => setViewMode('top')} 
+                                    className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${viewMode === 'top' ? 'bg-purple-100 text-purple-700' : 'text-slate-500 hover:bg-slate-50'}`}
+                                >
+                                    Planta
+                                </button>
+                                <button 
+                                    onClick={() => setViewMode('profile')} 
+                                    className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${viewMode === 'profile' ? 'bg-purple-100 text-purple-700' : 'text-slate-500 hover:bg-slate-50'}`}
+                                >
+                                    Perfil
+                                </button>
                             </div>
+
                             <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
                                 <button onClick={() => handleZoom(5)} className="bg-white p-2 rounded-lg shadow-md hover:bg-slate-50 border border-slate-200 text-slate-600 transition-colors" title="Acercar">
                                     <ZoomInIcon />
