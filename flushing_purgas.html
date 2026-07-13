@@ -80,7 +80,7 @@
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Caudal de Bombeo (x Línea)</label>
                             <div class="relative">
-                                <input type="number" id="flowRate" value="200" step="10" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-lg font-bold rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block p-2.5 pl-4 transition-colors">
+                                <input type="number" id="flowRate" value="100" step="10" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-lg font-bold rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block p-2.5 pl-4 transition-colors">
                                 <span class="absolute right-4 top-3 text-slate-400 font-bold">l/s</span>
                             </div>
                         </div>
@@ -89,20 +89,28 @@
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Progresiva de Purga / Distancia</label>
                             <div class="relative">
-                                <input type="number" id="distance" value="5000" step="100" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-lg font-bold rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block p-2.5 pl-4 transition-colors">
+                                <input type="number" id="distance" value="5900" step="100" class="w-full bg-slate-50 border border-slate-300 text-slate-800 text-lg font-bold rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block p-2.5 pl-4 transition-colors">
                                 <span class="absolute right-4 top-3 text-slate-400 font-bold">metros</span>
                             </div>
-                            <input type="range" id="distanceSlider" min="100" max="14000" value="5000" step="100" class="w-full h-2 mt-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-cyan-600">
+                            <input type="range" id="distanceSlider" min="100" max="14000" value="5900" step="100" class="w-full h-2 mt-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-cyan-600">
                         </div>
 
-                        <!-- Tiempo de Flushing -->
-                        <div class="bg-cyan-50 p-4 rounded-xl border border-cyan-100">
-                            <label class="block text-xs font-bold text-cyan-800 uppercase tracking-wide mb-1">Tiempo Extra de Flushing</label>
-                            <div class="relative">
-                                <input type="number" id="flushTime" value="15" step="5" class="w-full bg-white border border-cyan-200 text-cyan-900 text-lg font-bold rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block p-2.5 pl-4 transition-colors">
-                                <span class="absolute right-4 top-3 text-cyan-600 font-bold">minutos</span>
+                        <!-- Tiempo de Flushing (Opcional) -->
+                        <div class="bg-cyan-50 p-4 rounded-xl border border-cyan-100 transition-all duration-300">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="text-xs font-bold text-cyan-800 uppercase tracking-wide flex items-center gap-2 cursor-pointer select-none" for="useExtraTime">
+                                    <input type="checkbox" id="useExtraTime" class="w-4 h-4 text-cyan-600 bg-white border-cyan-300 rounded focus:ring-cyan-500 cursor-pointer" checked>
+                                    Añadir Tiempo Extra
+                                </label>
                             </div>
-                            <p class="text-[10px] text-cyan-700 mt-2 leading-tight">Tiempo adicional de purga abierta <i>después</i> de haber renovado todo el volumen estático del tramo.</p>
+                            
+                            <div id="flushTimeContainer" class="block transition-all duration-300 overflow-hidden">
+                                <div class="relative mt-2">
+                                    <input type="number" id="flushTime" value="15" step="5" class="w-full bg-white border border-cyan-200 text-cyan-900 text-lg font-bold rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block p-2.5 pl-4 transition-colors">
+                                    <span class="absolute right-4 top-3 text-cyan-600 font-bold">minutos</span>
+                                </div>
+                                <p class="text-[10px] text-cyan-700 mt-2 leading-tight">Tiempo adicional de purga abierta <i>después</i> de haber renovado todo el volumen estático del tramo.</p>
+                            </div>
                         </div>
 
                     </div>
@@ -146,16 +154,16 @@
                         </h3>
                     </div>
                     
-                    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+                    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 relative transition-all duration-300" id="vol-cards-container">
                         <!-- Conector visual central (solo desktop) -->
-                        <div class="hidden md:block absolute left-1/2 top-10 bottom-10 w-px bg-slate-200">
+                        <div id="vol-connector" class="hidden md:block absolute left-1/2 top-10 bottom-10 w-px bg-slate-200">
                             <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-full p-2 border border-slate-200 text-slate-400">
                                 <i class="ph ph-plus font-bold"></i>
                             </div>
                         </div>
 
                         <!-- Volumen Estático -->
-                        <div class="bg-blue-50/50 p-5 rounded-xl border border-blue-100 relative">
+                        <div id="card-vol-static" class="bg-blue-50/50 p-5 rounded-xl border border-blue-100 relative transition-all duration-300">
                             <div class="absolute top-4 right-4 text-blue-200"><i class="ph ph-cylinder text-4xl"></i></div>
                             <span class="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-[10px] font-bold uppercase rounded mb-2">Paso 1: Renovación</span>
                             <h4 class="text-sm font-bold text-slate-700">Volumen Estático (Tubería)</h4>
@@ -164,7 +172,7 @@
                         </div>
 
                         <!-- Volumen Dinámico -->
-                        <div class="bg-cyan-50/50 p-5 rounded-xl border border-cyan-100 relative">
+                        <div id="card-vol-flush" class="bg-cyan-50/50 p-5 rounded-xl border border-cyan-100 relative transition-all duration-300">
                             <div class="absolute top-4 right-4 text-cyan-200"><i class="ph ph-waves text-4xl"></i></div>
                             <span class="inline-block px-2 py-1 bg-cyan-100 text-cyan-700 text-[10px] font-bold uppercase rounded mb-2">Paso 2: Lavado Extra</span>
                             <h4 class="text-sm font-bold text-slate-700">Volumen Dinámico (Flushing)</h4>
@@ -212,6 +220,10 @@
         const flowRateInput = document.getElementById('flowRate');
         const distanceInput = document.getElementById('distance');
         const distanceSlider = document.getElementById('distanceSlider');
+        
+        // Elementos de Tiempo Extra
+        const useExtraTimeCb = document.getElementById('useExtraTime');
+        const flushTimeContainer = document.getElementById('flushTimeContainer');
         const flushTimeInput = document.getElementById('flushTime');
 
         // Elementos UI de Salida
@@ -219,6 +231,10 @@
         const outVel = document.getElementById('out-vel');
         const velStatus = document.getElementById('vel-status');
         const outTransitTime = document.getElementById('out-transit-time');
+        
+        const volCardsContainer = document.getElementById('vol-cards-container');
+        const cardVolFlush = document.getElementById('card-vol-flush');
+        const volConnector = document.getElementById('vol-connector');
         
         const outVolStatic = document.getElementById('out-vol-static');
         const outVolFlush = document.getElementById('out-vol-flush');
@@ -236,6 +252,37 @@
             calcular();
         });
 
+        // Toggle para mostrar/ocultar el tiempo extra y la tarjeta
+        useExtraTimeCb.addEventListener('change', () => {
+            if (useExtraTimeCb.checked) {
+                flushTimeContainer.style.display = 'block';
+                cardVolFlush.style.display = 'block';
+                
+                // Mostrar conector y restaurar cuadrícula en pantallas medianas
+                if (window.innerWidth >= 768) {
+                    volConnector.style.display = 'block';
+                }
+                volCardsContainer.classList.add('md:grid-cols-2');
+                volCardsContainer.classList.remove('md:grid-cols-1');
+            } else {
+                flushTimeContainer.style.display = 'none';
+                cardVolFlush.style.display = 'none';
+                volConnector.style.display = 'none';
+                
+                // Hacer que la tarjeta estática ocupe todo el ancho
+                volCardsContainer.classList.remove('md:grid-cols-2');
+                volCardsContainer.classList.add('md:grid-cols-1');
+            }
+            calcular();
+        });
+
+        // Ocultar el conector visual si la pantalla cambia a móvil mientras está activo
+        window.addEventListener('resize', () => {
+            if (useExtraTimeCb.checked) {
+                volConnector.style.display = window.innerWidth >= 768 ? 'block' : 'none';
+            }
+        });
+
         // Eventos para el resto de inputs
         [pipeSelect, flowRateInput, flushTimeInput].forEach(el => {
             el.addEventListener('input', calcular);
@@ -246,7 +293,10 @@
             const D_int_m = parseFloat(pipeSelect.value); // En metros
             const Q_lps = parseFloat(flowRateInput.value) || 0;
             const dist_m = parseFloat(distanceInput.value) || 0;
-            const flush_min = parseFloat(flushTimeInput.value) || 0;
+            
+            // Validar si se está usando el tiempo extra
+            const use_extra = useExtraTimeCb.checked;
+            const flush_min = use_extra ? (parseFloat(flushTimeInput.value) || 0) : 0;
 
             const Q_m3s = Q_lps / 1000;
 
