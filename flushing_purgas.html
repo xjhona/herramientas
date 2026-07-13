@@ -63,12 +63,15 @@
                                     <option value="0.474">PVC-O 500 mm (D. Int ≈ 474 mm)</option>
                                     <option value="0.598">PVC-O 630 mm (D. Int ≈ 598 mm)</option>
                                 </optgroup>
-                                <optgroup label="PVC-U (Tradicional) - PN 10">
-                                    <option value="0.296">PVC-U 315 mm (D. Int ≈ 296 mm)</option>
-                                    <option value="0.333">PVC-U 355 mm (D. Int ≈ 333 mm)</option>
-                                    <option value="0.375">PVC-U 400 mm (D. Int ≈ 375 mm)</option>
-                                    <option value="0.469">PVC-U 500 mm (D. Int ≈ 469 mm)</option>
-                                    <option value="0.591">PVC-U 630 mm (D. Int ≈ 591 mm)</option>
+                                <optgroup label="PVC-U (Tradicional)">
+                                    <option value="0.296">PVC-U 315 mm - Clase 10 (D. Int ≈ 296 mm)</option>
+                                    <option value="0.333">PVC-U 355 mm - Clase 10 (D. Int ≈ 333 mm)</option>
+                                    <option value="0.375">PVC-U 400 mm - Clase 10 (D. Int ≈ 375 mm)</option>
+                                    <option value="0.428">PVC-U 450 mm - Clase 5 (D. Int ≈ 428 mm)</option>
+                                    <option value="0.4174">PVC-U 450 mm - Clase 7.5 (D. Int ≈ 417.4 mm)</option>
+                                    <option value="0.407">PVC-U 450 mm - Clase 10 (D. Int ≈ 407 mm)</option>
+                                    <option value="0.469">PVC-U 500 mm - Clase 10 (D. Int ≈ 469 mm)</option>
+                                    <option value="0.591">PVC-U 630 mm - Clase 10 (D. Int ≈ 591 mm)</option>
                                 </optgroup>
                             </select>
                         </div>
@@ -271,7 +274,7 @@
             const total_time = transit_min + flush_min;
 
             // 3. Actualizar UI
-            outId.innerText = (D_int_m * 1000).toFixed(0) + ' mm';
+            outId.innerText = (D_int_m * 1000).toFixed(1) + ' mm';
             outVel.innerText = vel.toFixed(2) + ' m/s';
             
             // Estado de la velocidad (Evaluador visual)
