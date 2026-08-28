@@ -7,7 +7,8 @@
     <!-- Tailwind CSS (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons (CDN) -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"
+            onerror="this.onerror=null;var f=document.createElement('script');f.src='https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js';f.onload=function(){window.drawIcons&&window.drawIcons()};document.head.appendChild(f);"></script>
     <style>
         /* Estilos base para evitar selecciones accidentales al rotar en 3D */
         .select-none { user-select: none; -webkit-user-select: none; }
@@ -141,6 +142,9 @@
                         <button onclick="setViewMode('Y')" id="tab-Y" class="whitespace-nowrap px-4 py-2 rounded-lg font-medium text-sm transition-colors text-neutral-500 hover:bg-neutral-100">
                             Perfil Y (Corte Largo)
                         </button>
+                        <button onclick="setViewMode('P')" id="tab-P" class="whitespace-nowrap px-4 py-2 rounded-lg font-medium text-sm transition-colors text-neutral-500 hover:bg-neutral-100">
+                            Vista en Planta
+                        </button>
                     </div>
 
                     <!-- Controles de Cámara 3D -->
@@ -194,8 +198,18 @@
 
     <!-- Script de Lógica Principal -->
     <script>
-        // Inicializar Iconos
-        lucide.createIcons();
+        // Inicializar Iconos (tolerante a fallos de CDN)
+        window.drawIcons = function () {
+            try {
+                if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                    window.lucide.createIcons();
+                }
+            } catch (e) {
+                console.warn('Iconos no disponibles:', e);
+            }
+        };
+        drawIcons();
+        window.addEventListener('load', drawIcons);
 
         // Variables de Estado
         const state = {
@@ -237,7 +251,7 @@
             state.viewMode = mode;
             
             // Actualizar Pestañas Visuales
-            const tabs = ['3D', 'X', 'Y'];
+            const tabs = ['3D', 'X', 'Y', 'P'];
             tabs.forEach(t => {
                 const btn = document.getElementById(`tab-${t}`);
                 if(t === mode) {
@@ -539,6 +553,140 @@
             </svg>`;
         }
 
+        // ==========================================
+        // VISTA EN PLANTA
+        // ==========================================
+        function renderPlan(data) {
+            const { m, C, D, h_fill: hf, h_cut: hc, A, B, H, E, Fb } = data;
+
+            // Semi-anchos (X = direccion del ancho, Y = direccion del largo)
+            const Aw = C + 2 * (H - Fb) * m;          // ancho del espejo de agua
+            const Bw = D + 2 * (H - Fb) * m;          // largo del espejo de agua
+            const Ag = A + 2 * E + 2 * hf * m;        // ancho total (pie de talud exterior)
+            const Bg = B + 2 * E + 2 * hf * m;        // largo total (pie de talud exterior)
+
+            const gx = Ag / 2,  gy = Bg / 2;                  // pie de talud exterior (NTN)
+            const ox = (A + 2 * E) / 2, oy = (B + 2 * E) / 2; // borde exterior de corona
+            const ix = A / 2,  iy = B / 2;                    // borde interior de corona
+            const wx = Aw / 2, wy = Bw / 2;                   // espejo de agua
+            const bx = C / 2,  by = D / 2;                    // fondo
+
+            const svgW = 800, svgH = 500;
+            const scale = Math.min(svgW / (Ag * 1.35), svgH / (Bg * 1.30)) * state.cam.zoom;
+            const cx = svgW / 2, cy = svgH / 2;
+
+            const px = (x) => cx + x * scale;
+            const py = (y) => cy - y * scale;
+            const rect = (hw, hl) => `${px(-hw)},${py(-hl)} ${px(hw)},${py(-hl)} ${px(hw)},${py(hl)} ${px(-hw)},${py(hl)}`;
+
+            // Anillo entre dos rectangulos concentricos (regla par-impar)
+            const ring = (hw1, hl1, hw2, hl2, fill, stroke) =>
+                `<path d="M ${px(-hw1)} ${py(-hl1)} H ${px(hw1)} V ${py(hl1)} H ${px(-hw1)} Z
+                          M ${px(-hw2)} ${py(-hl2)} H ${px(hw2)} V ${py(hl2)} H ${px(-hw2)} Z"
+                       fill="${fill}" fill-rule="evenodd" stroke="${stroke}" stroke-width="1.5" />`;
+
+            // Lineas diagonales de esquina (proyeccion de taludes)
+            const corners = (hw1, hl1, hw2, hl2, color) => {
+                let out = '';
+                const sg = [[-1,-1],[1,-1],[1,1],[-1,1]];
+                sg.forEach(([sx, sy]) => {
+                    out += `<line x1="${px(sx*hw1)}" y1="${py(sy*hl1)}" x2="${px(sx*hw2)}" y2="${py(sy*hl2)}" stroke="${color}" stroke-width="1" stroke-dasharray="4 3" />`;
+                });
+                return out;
+            };
+
+            // --- Acotaciones ---
+            const dimHoriz = (hw, yLine, label, color, yRef) => `
+                <g>
+                    <line x1="${px(-hw)}" y1="${py(yRef)}" x2="${px(-hw)}" y2="${py(yLine)}" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="3 3" />
+                    <line x1="${px(hw)}"  y1="${py(yRef)}" x2="${px(hw)}"  y2="${py(yLine)}" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="3 3" />
+                    <line x1="${px(-hw)}" y1="${py(yLine)}" x2="${px(hw)}" y2="${py(yLine)}" stroke="${color}" stroke-width="1.5" />
+                    <circle cx="${px(-hw)}" cy="${py(yLine)}" r="3" fill="${color}" />
+                    <circle cx="${px(hw)}"  cy="${py(yLine)}" r="3" fill="${color}" />
+                    <text x="${cx}" y="${py(yLine) - 7}" text-anchor="middle" fill="${color}" font-size="13" font-weight="700"
+                          paint-order="stroke fill" stroke="white" stroke-width="4" stroke-linejoin="round">${label}</text>
+                </g>`;
+
+            const dimVert = (hl, xLine, label, color, xRef) => `
+                <g>
+                    <line x1="${px(xRef)}" y1="${py(-hl)}" x2="${px(xLine)}" y2="${py(-hl)}" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="3 3" />
+                    <line x1="${px(xRef)}" y1="${py(hl)}"  x2="${px(xLine)}" y2="${py(hl)}"  stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="3 3" />
+                    <line x1="${px(xLine)}" y1="${py(-hl)}" x2="${px(xLine)}" y2="${py(hl)}" stroke="${color}" stroke-width="1.5" />
+                    <circle cx="${px(xLine)}" cy="${py(-hl)}" r="3" fill="${color}" />
+                    <circle cx="${px(xLine)}" cy="${py(hl)}"  r="3" fill="${color}" />
+                    <text x="${px(xLine)}" y="${cy}" text-anchor="middle" fill="${color}" font-size="13" font-weight="700"
+                          transform="rotate(-90 ${px(xLine)} ${cy})" dy="-6"
+                          paint-order="stroke fill" stroke="white" stroke-width="4" stroke-linejoin="round">${label}</text>
+                </g>`;
+
+            // Posiciones de las lineas de cota (en unidades de terreno)
+            const off = Math.max(Ag, Bg) * 0.055;
+            const yTop1 = gy + off * 1.6;   // Ancho total (Ag)
+            const yTop2 = gy + off * 0.5;   // Ancho superior interior (A)
+            const yBot1 = -(by + off * 0.9); // Ancho de fondo (C)
+            const xLef1 = -(gx + off * 1.6); // Largo total (Bg)
+            const xRig1 = gx + off * 0.5;    // Largo superior interior (B)
+            const xRig2 = bx + off * 0.9;    // Largo de fondo (D)
+
+            return `
+            <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 800 500" class="drop-shadow-sm select-none">
+                <defs>
+                    <pattern id="hatchPlan" patternUnits="userSpaceOnUse" width="8" height="8">
+                        <path d="M-1,1 l2,-2 M0,8 l8,-8 M7,9 l2,-2" stroke="rgba(156,124,76,0.35)" stroke-width="1" />
+                    </pattern>
+                </defs>
+
+                <!-- Talud exterior (relleno): del pie de talud al borde exterior de corona -->
+                ${ring(gx, gy, ox, oy, '#e6d3b0', '#b49566')}
+                <!-- Corona del dique -->
+                ${ring(ox, oy, ix, iy, '#c5a77a', '#9e8156')}
+                <!-- Talud interior (del borde superior al fondo) -->
+                ${ring(ix, iy, bx, by, 'url(#hatchPlan)', '#b49566')}
+
+                <!-- Espejo de agua -->
+                <polygon points="${rect(wx, wy)}" fill="rgba(56,189,248,0.45)" stroke="#0ea5e9" stroke-width="1.5" stroke-dasharray="7 5" />
+
+                <!-- Fondo -->
+                <polygon points="${rect(bx, by)}" fill="rgba(56,189,248,0.65)" stroke="#334155" stroke-width="1.8" />
+
+                <!-- Diagonales de esquina (taludes) -->
+                ${corners(ix, iy, bx, by, '#8a6d43')}
+                ${corners(ox, oy, gx, gy, '#8a6d43')}
+
+                <!-- Ejes de simetria -->
+                <line x1="${px(0)}" y1="${py(gy)}" x2="${px(0)}" y2="${py(-gy)}" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="12 4 3 4" />
+                <line x1="${px(-gx)}" y1="${py(0)}" x2="${px(gx)}" y2="${py(0)}" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="12 4 3 4" />
+
+                <!-- Etiqueta central -->
+                <text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="20" font-weight="700" fill="#0369a1"
+                      paint-order="stroke fill" stroke="white" stroke-width="5" stroke-linejoin="round">
+                      ${data.vWater.toLocaleString('en-US', {maximumFractionDigits:0})} m³
+                </text>
+                <text x="${cx}" y="${cy + 14}" text-anchor="middle" font-size="13" font-weight="600" fill="#0284c7"
+                      paint-order="stroke fill" stroke="white" stroke-width="4" stroke-linejoin="round">
+                      VOLUMEN ÚTIL
+                </text>
+
+                <!-- Acotaciones -->
+                ${dimHoriz(gx, yTop1, `Ancho Total = ${Ag.toFixed(1)}m`, '#dc2626', gy)}
+                ${dimHoriz(ix, yTop2, `A = ${A.toFixed(1)}m`, '#2563eb', iy)}
+                ${dimHoriz(bx, yBot1, `C = ${C.toFixed(1)}m`, '#334155', -by)}
+                ${dimVert(gy, xLef1, `Largo Total = ${Bg.toFixed(1)}m`, '#dc2626', -gx)}
+                ${dimVert(iy, xRig1, `B = ${B.toFixed(1)}m`, '#2563eb', ix)}
+                ${dimVert(by, xRig2, `D = ${D.toFixed(1)}m`, '#334155', bx)}
+
+                <!-- Leyenda -->
+                <g font-size="11" font-weight="600">
+                    <rect x="14" y="14" width="15" height="12" fill="#c5a77a" stroke="#9e8156" />
+                    <text x="35" y="24" fill="#57534e">Corona (E = ${E.toFixed(1)}m)</text>
+                    <rect x="14" y="32" width="15" height="12" fill="rgba(56,189,248,0.45)" stroke="#0ea5e9" />
+                    <text x="35" y="42" fill="#57534e">Espejo de agua (${Aw.toFixed(1)} x ${Bw.toFixed(1)}m)</text>
+                    <rect x="14" y="50" width="15" height="12" fill="rgba(56,189,248,0.65)" stroke="#334155" />
+                    <text x="35" y="60" fill="#57534e">Fondo (${C.toFixed(1)} x ${D.toFixed(1)}m)</text>
+                </g>
+            </svg>`;
+        }
+
         function updateApp() {
             const data = calculate();
             const errDiv = document.getElementById('error-msg');
@@ -575,6 +723,8 @@
             // Renderizar Gráficos
             if (state.viewMode === '3D') {
                 svgCont.innerHTML = render3D(data);
+            } else if (state.viewMode === 'P') {
+                svgCont.innerHTML = renderPlan(data);
             } else {
                 svgCont.innerHTML = render2D(data, state.viewMode);
             }
