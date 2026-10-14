@@ -25,9 +25,11 @@ import xml.etree.ElementTree as ET
 import zipfile
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 import ezdxf
 import numpy as np
+import pyproj
 import rasterio
 import requests
 from contourpy import LineType, contour_generator
@@ -189,6 +191,38 @@ def fetch(zxy):
     return zxy, None
 
 
+META_URL = "https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/{layer}/query"
+SENSORS = {"WV01": "WorldView-1", "WV02": "WorldView-2", "WV03": "WorldView-3", "WV04": "WorldView-4",
+           "GE01": "GeoEye-1", "QB02": "QuickBird-2", "IK02": "IKONOS",
+           **{f"LG{i:02d}": f"WorldView Legion-{i}" for i in range(1, 7)}}
+
+
+def ddmmyyyy(iso):
+    """'2025-01-27' o '20250127' -> '27/01/2025'."""
+    d = iso.replace("-", "")
+    return f"{d[6:8]}/{d[4:6]}/{d[:4]}" if len(d) == 8 else "s/f"
+
+
+def imagery_metadata(z, lon0, lat0, lon1, lat1):
+    """Tomas (fecha, satélite, resolución, precisión) que forman la imagen Esri al zoom z en el área.
+    Las capas de metadatos del servicio van por resolución: capa 11 = 1.2 m = zoom 17, etc."""
+    try:
+        r = SESSION.get(META_URL.format(layer=28 - z), timeout=30, params={
+            "geometry": f"{lon0},{lat0},{lon1},{lat1}", "geometryType": "esriGeometryEnvelope", "inSR": 4326,
+            "spatialRel": "esriSpatialRelIntersects", "returnGeometry": "false", "f": "json",
+            "outFields": "SRC_DATE,SRC_DESC,SRC_RES,SRC_ACC,NICE_DESC,ReleaseName"})
+        feats = [f["attributes"] for f in r.json().get("features", [])]
+    except (requests.RequestException, ValueError, KeyError):
+        return [], ""
+    tomas = {}
+    for a in feats:
+        d = str(a.get("SRC_DATE") or "")
+        sensor = SENSORS.get(a.get("SRC_DESC"), a.get("SRC_DESC") or "")
+        tomas[(d, sensor)] = {"fecha": ddmmyyyy(d), "satelite": f"{a.get('NICE_DESC') or ''} {sensor}".strip(),
+                              "res": a.get("SRC_RES"), "acc": a.get("SRC_ACC")}
+    return [tomas[k] for k in sorted(tomas)], (feats[0].get("ReleaseName") or "" if feats else "")
+
+
 # =============================================================================
 # Curvas de nivel (Copernicus DEM GLO-30, alturas sobre el geoide EGM2008)
 # =============================================================================
@@ -199,14 +233,33 @@ def dem_tile_name(lat, lon):
             f"{'E' if lo >= 0 else 'W'}{abs(lo):03d}_00_DEM")
 
 
+def dem_metadata(tiles):
+    """Periodo de las tomas TanDEM-X, edición y precisión vertical LE90 (del XML de cada tile)."""
+    ini, fin, ed, le90 = [], [], [], []
+    for name in tiles:
+        xml_name = name.replace("_COG", "").removesuffix("_DEM") + ".xml"
+        try:
+            xml = SESSION.get(f"https://copernicus-dem-30m.s3.amazonaws.com/{name}/{xml_name}", timeout=30).text
+        except requests.RequestException:
+            continue
+        ini += re.findall(r"<tsxx:tsxx_startTime>(\d{4}-\d\d-\d\d)", xml)
+        fin += re.findall(r"<tsxx:tsxx_stopTime>(\d{4}-\d\d-\d\d)", xml)
+        ed += re.findall(r"<gmd:editionDate>\s*<gco:Date>(\d{4}-\d\d-\d\d)", xml)
+        le90 += [float(v) for v in re.findall(r"absolutePositionalAccuracyLE90[^>]*>([\d.]+)<", xml)]
+    return {"desde": ddmmyyyy(min(ini)) if ini else "s/f", "hasta": ddmmyyyy(max(fin)) if fin else "s/f",
+            "edicion": ddmmyyyy(max(ed)) if ed else "s/f", "le90": max(le90) if le90 else None}
+
+
 def get_dem(epsg, xmin, ymin, xmax, ymax, res):
-    """Grilla de elevaciones en UTM (origen xmin, ymax; paso res), NaN donde no hay datos."""
+    """Grilla de elevaciones en UTM (origen xmin, ymax; paso res), NaN donde no hay datos,
+    y lista de tiles Copernicus usados."""
     lons, lats = Transformer.from_crs(epsg, 4326, always_xy=True).transform(
         [xmin, xmax, xmin, xmax], [ymin, ymin, ymax, ymax])
     lo0, lo1 = min(lons) - 0.002, max(lons) + 0.002
     la0, la1 = min(lats) - 0.002, max(lats) + 0.002
     ncols, nrows = math.ceil((xmax - xmin) / res), math.ceil((ymax - ymin) / res)
     dem = np.full((nrows, ncols), np.nan, dtype=np.float32)
+    tiles = []
     with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR"):
         for la in range(math.floor(la0), math.floor(la1) + 1):
             for lo in range(math.floor(lo0), math.floor(lo1) + 1):
@@ -214,6 +267,7 @@ def get_dem(epsg, xmin, ymin, xmax, ymax, res):
                     src = rasterio.open(DEM_URL.format(n=dem_tile_name(la, lo)))
                 except RasterioIOError:  # tile inexistente (mar)
                     continue
+                tiles.append(dem_tile_name(la, lo))
                 with src:
                     t = src.transform
                     c0 = max(int((lo0 - t.c) / t.a), 0)
@@ -228,7 +282,7 @@ def get_dem(epsg, xmin, ymin, xmax, ymax, res):
                               src_crs=src.crs, dst_transform=from_origin(xmin, ymax, res, res),
                               dst_crs=CRS.from_epsg(epsg), resampling=Resampling.cubic, dst_nodata=np.nan)
                     dem = np.where(np.isnan(dem), tmp, dem)
-    return dem
+    return dem, tiles
 
 
 def smooth(z, sigma):
@@ -245,10 +299,11 @@ def smooth(z, sigma):
 
 
 def add_contours(doc, epsg, xmin, ymin, xmax, ymax, interval, major_every=5, res=5.0):
-    dem = get_dem(epsg, xmin, ymin, xmax, ymax, res)
+    """Agrega las curvas al DXF; devuelve un dict con datos para el reporte (None si no hay DEM)."""
+    dem, tiles = get_dem(epsg, xmin, ymin, xmax, ymax, res)
     if np.isnan(dem).all():
         print("  AVISO: no hay datos de elevación para esta zona")
-        return
+        return None
     # el DEM es de superficie (incluye árboles y casas): suavizar ~15 m quita ese ruido
     dem = smooth(dem, sigma=3)
     min_loop = 20 * res  # descartar curvas cerradas de menos de ~100 m de perímetro
@@ -286,6 +341,49 @@ def add_contours(doc, epsg, xmin, ymin, xmax, ymax, interval, major_every=5, res
                     tuple(pts[i]), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
     print(f"  Curvas cada {interval:g} m (maestras cada {interval*major_every:g} m): "
           f"{n} polilíneas, cotas {zmin:.0f}-{zmax:.0f} m")
+    return {"intervalo": interval, "mayor": interval * major_every, "n": n, "zmin": zmin, "zmax": zmax,
+            **dem_metadata(tiles)}
+
+
+def fuentes_texto(nombre, epsg, xmin, ymin, xmax, ymax, z, px, tomas, release, curv):
+    """Reporte de fuentes (txt) y nota corta para el plano."""
+    L = [f"REPORTE DE FUENTES - {nombre}",
+         f"Generado el {datetime.now():%d/%m/%Y %H:%M} con KmzOrtofoto",
+         f"Área: E {xmin:.0f}-{xmax:.0f}  N {ymin:.0f}-{ymax:.0f}  ({pyproj.CRS.from_epsg(epsg).name}, EPSG:{epsg})",
+         "",
+         "IMAGEN SATELITAL",
+         f"  Fuente:      Esri World Imagery{f' (edición {release})' if release else ''}",
+         f"  Resolución:  {px} m/píxel (zoom {z})"]
+    if tomas:
+        L.append("  Tomas que forman la imagen:")
+        for t in tomas:
+            det = ", ".join(s for s in (f"res. original {t['res']:.2f} m" if t["res"] else "",
+                                        f"precisión ±{t['acc']:g} m" if t["acc"] else "") if s)
+            L.append(f"    - {t['fecha']}  {t['satelite']}" + (f"  ({det})" if det else ""))
+    else:
+        L.append("  Fecha de la imagen: no disponible (no se pudo consultar el servicio de metadatos)")
+    nota = ["IMAGEN: Esri World Imagery" + (" - " + "; ".join(f"{t['satelite']} {t['fecha']}" for t in tomas) if tomas else "")]
+    if curv:
+        le90 = f"±{curv['le90']:.1f} m (LE90)" if curv["le90"] else "aprox. ±2-4 m"
+        L += ["",
+              "CURVAS DE NIVEL",
+              "  Fuente:      Copernicus DEM GLO-30 (ESA / Airbus, misión TanDEM-X)",
+              f"  Fecha del terreno: tomas del {curv['desde']} al {curv['hasta']}",
+              f"  Edición del modelo: {curv['edicion']}",
+              f"  Precisión vertical en la zona: {le90}",
+              "  Alturas ortométricas sobre el geoide EGM2008 (aprox. nivel medio del mar)",
+              f"  Curvas cada {curv['intervalo']:g} m, maestras cada {curv['mayor']:g} m; "
+              f"cotas {curv['zmin']:.0f}-{curv['zmax']:.0f} m; DEM de 30 m suavizado ~15 m",
+              "  Modelo de superficie (incluye árboles y edificaciones). No refleja movimientos de tierra",
+              f"  posteriores a {curv['hasta'][-4:]}. No reemplaza un levantamiento topográfico."]
+        nota.append(f"CURVAS: Copernicus DEM GLO-30 (TanDEM-X {curv['desde'][-4:]}-{curv['hasta'][-4:]}), "
+                    f"precisión vertical {le90}, cada {curv['intervalo']:g} m")
+    L += ["",
+          "ATRIBUCIÓN",
+          "  Imagen: Esri, Vantor (Maxar), Earthstar Geographics y la comunidad de usuarios SIG.",
+          "  Elevación: produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence",
+          "  and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved."]
+    return "\n".join(L) + "\n", nota
 
 
 def add_orthophoto(dxf_path, epsg, margin=0.25, zoom=0, curvas=1.0):
@@ -345,8 +443,23 @@ def add_orthophoto(dxf_path, epsg, margin=0.25, zoom=0, curvas=1.0):
     with open(base + ".prj", "w") as f:
         f.write(CRS.from_epsg(epsg).to_wkt(version="WKT1_ESRI"))
 
-    if curvas > 0:
-        add_contours(doc, epsg, xmin, ymin, xmax, ymax, curvas)
+    curv = add_contours(doc, epsg, xmin, ymin, xmax, ymax, curvas) if curvas > 0 else None
+
+    # fuentes y fechas: reporte .txt + nota en el plano (capa FUENTES, bajo la imagen)
+    lons, lats = Transformer.from_crs(epsg, 4326, always_xy=True).transform([xmin, xmax], [ymin, ymax])
+    tomas, release = imagery_metadata(z, min(lons), min(lats), max(lons), max(lats))
+    reporte, nota = fuentes_texto(os.path.basename(base), epsg, xmin, ymin, xmax, ymax, z, px, tomas, release, curv)
+    with open(base + "_fuentes.txt", "w", encoding="utf-8-sig") as f:
+        f.write(reporte)
+    print("  Imagen: " + ("; ".join(f"{t['fecha']} {t['satelite']}" for t in tomas) if tomas else "fecha no disponible"))
+    if curv:
+        print(f"  Terreno (curvas): tomas {curv['desde']} - {curv['hasta']}, edición {curv['edicion']}")
+    if "FUENTES" not in doc.layers:
+        doc.layers.add("FUENTES", color=7)
+    note_h = max(round(max(xmax - xmin, ymax - ymin) / 300, 1), 0.5)
+    msp.add_mtext("\\P".join(nota), dxfattribs={"layer": "FUENTES", "char_height": note_h,
+                                                 "width": xmax - xmin}).set_location(
+        (xmin, ymin - note_h), attachment_point=ezdxf.enums.MTextEntityAlignment.TOP_LEFT)
 
     if "ORTOFOTO" not in doc.layers:
         doc.layers.add("ORTOFOTO", color=8)
@@ -359,7 +472,7 @@ def add_orthophoto(dxf_path, epsg, margin=0.25, zoom=0, curvas=1.0):
     order[image.dxf.handle] = "1"  # imagen al fondo
     msp.set_redraw_order(order)
     doc.saveas(base + ".dxf")
-    print(f"  -> {os.path.basename(base)}.dxf + .jpg ({os.path.getsize(jpg)/1e6:.1f} MB)")
+    print(f"  -> {os.path.basename(base)}.dxf + .jpg ({os.path.getsize(jpg)/1e6:.1f} MB) + _fuentes.txt")
     return base + ".dxf"
 
 

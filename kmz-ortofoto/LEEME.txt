@@ -24,6 +24,9 @@ Los archivos se guardan junto al KMZ:
   <nombre>.dxf              dibujo convertido, sin imagen
   <nombre>_ortofoto.dxf     dibujo + imagen (capa ORTOFOTO) + curvas (CURVAS_MENOR / CURVAS_MAYOR)
   <nombre>_ortofoto.jpg     imagen satelital (+ .jgw y .prj de georreferencia)
+  <nombre>_ortofoto_fuentes.txt   reporte: fecha y satelite de la imagen, fechas del
+                            terreno de las curvas, precision y fuentes de los datos
+                            (un resumen queda tambien en el DXF, capa FUENTES)
 
 IMPORTANTE: el DXF no contiene la imagen, solo la referencia.
 Mantener el .jpg en la misma carpeta que el .dxf.

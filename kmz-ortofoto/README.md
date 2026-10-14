@@ -4,7 +4,7 @@ Herramienta para Windows que convierte un KMZ/KML de Google Earth a DXF en coord
 
 ## Descarga
 
-**[KmzOrtofoto.zip](https://github.com/xjhona/herramientas/releases/download/kmz-ortofoto-v1.0/KmzOrtofoto.zip)**: incluye todo, no hace falta instalar Python.
+**[KmzOrtofoto.zip](https://github.com/xjhona/herramientas/releases/download/kmz-ortofoto-v1.1/KmzOrtofoto.zip)**: incluye todo, no hace falta instalar Python.
 
 1. Clic derecho al ZIP → *Propiedades* → marcar **Desbloquear** (si aparece).
 2. Descomprimir en una carpeta fija, por ejemplo `C:\KmzOrtofoto`.
@@ -32,6 +32,7 @@ kmzortofoto.bat archivo.kmz [--margen 25] [--epsg 32718] [--zoom 0] [--curvas 1]
 | `<nombre>.dxf` | Dibujo convertido. Capa = carpeta del KMZ, color = estilo de línea |
 | `<nombre>_ortofoto.dxf` | Dibujo + imagen en capa `ORTOFOTO` + curvas en `CURVAS_MENOR` / `CURVAS_MAYOR` (polilíneas con elevación) |
 | `<nombre>_ortofoto.jpg` / `.jgw` / `.prj` | Imagen georreferenciada (sirve también en QGIS / Civil 3D) |
+| `<nombre>_ortofoto_fuentes.txt` | Reporte: fecha y satélite de cada toma de la imagen, periodo de las tomas del terreno, precisión vertical en la zona y atribución. Un resumen queda también en el DXF (capa `FUENTES`, bajo la imagen) |
 
 ## Notas
 
