@@ -1,0 +1,52 @@
+KMZ a DXF + ORTOFOTO + CURVAS DE NIVEL
+=======================================
+
+Convierte un archivo KMZ/KML de Google Earth a DXF en coordenadas UTM (WGS84)
+y le agrega de fondo la imagen satelital y las curvas de nivel de la zona.
+
+
+INSTALACION (una sola vez)
+--------------------------
+1. Descomprimir esta carpeta en un lugar fijo, por ejemplo C:\KmzOrtofoto
+   (no ejecutar desde dentro del ZIP).
+2. Doble clic en  instalar.bat
+   La primera vez descarga Python y las librerias (unos minutos, requiere internet).
+
+
+USO
+---
+Clic derecho sobre uno o varios archivos .kmz o .kml
+  -> Mostrar mas opciones -> Enviar a -> "KMZ a DXF + ortofoto"
+
+Al terminar se abre la carpeta con el resultado seleccionado.
+Los archivos se guardan junto al KMZ:
+
+  <nombre>.dxf              dibujo convertido, sin imagen
+  <nombre>_ortofoto.dxf     dibujo + imagen (capa ORTOFOTO) + curvas (CURVAS_MENOR / CURVAS_MAYOR)
+  <nombre>_ortofoto.jpg     imagen satelital (+ .jgw y .prj de georreferencia)
+
+IMPORTANTE: el DXF no contiene la imagen, solo la referencia.
+Mantener el .jpg en la misma carpeta que el .dxf.
+
+Tambien funciona sobre un .dxf que ya este en UTM: solo agrega imagen y curvas
+(pregunta la zona: 17, 18 o 19 sur).
+
+
+NOTAS
+-----
+- La zona UTM se detecta sola (17S = EPSG 32717, 18S = 32718, 19S = 32719).
+- Margen alrededor del proyecto: 25 %.
+- Imagen: Esri World Imagery, la mejor resolucion disponible en la zona
+  (en la costa peruana suele ser ~1.2 m/pixel).
+- Curvas: Copernicus DEM GLO-30, cada 1 m, maestras cada 5 m con cota.
+  Precision vertical aprox. +-2-4 m. Sirven para ver la pendiente general,
+  NO reemplazan un levantamiento topografico.
+
+Opciones avanzadas (desde una consola, en esta carpeta):
+  kmzortofoto.bat archivo.kmz --margen 40 --curvas 2 --epsg 32718
+  (--curvas 0 = sin curvas)
+
+
+DESINSTALAR
+-----------
+Doble clic en  desinstalar.bat  y luego borrar la carpeta.
