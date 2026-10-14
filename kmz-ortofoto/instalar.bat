@@ -3,7 +3,7 @@ rem Crea el acceso "KMZ a DXF + ortofoto" en el menu Enviar a y prepara las depe
 chcp 65001 >nul
 setlocal
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+powershell -NoProfile -Command ^
   "$lnk = Join-Path ([Environment]::GetFolderPath('SendTo')) 'KMZ a DXF + ortofoto.lnk';" ^
   "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk);" ^
   "$s.TargetPath = '%~dp0kmzortofoto.bat';" ^

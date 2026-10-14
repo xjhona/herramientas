@@ -50,6 +50,14 @@ Opciones avanzadas (desde una consola, en esta carpeta):
   (--curvas 0 = sin curvas)
 
 
+ACTUALIZAR
+----------
+Reemplazar el archivo  kmzortofoto.py  de esta carpeta por la version nueva.
+No hace falta reinstalar ni volver a ejecutar instalar.bat.
+Ultima version: https://github.com/xjhona/herramientas/tree/main/kmz-ortofoto
+(abrir kmzortofoto.py -> boton "Download raw file").
+
+
 DESINSTALAR
 -----------
 Doble clic en  desinstalar.bat  y luego borrar la carpeta.
