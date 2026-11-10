@@ -7,10 +7,21 @@ y le agrega de fondo la imagen satelital y las curvas de nivel de la zona.
 
 INSTALACION (una sola vez)
 --------------------------
-1. Descomprimir esta carpeta en un lugar fijo, por ejemplo C:\KmzOrtofoto
-   (no ejecutar desde dentro del ZIP).
+1. Descomprimir el ZIP en cualquier carpeta (no ejecutar desde dentro del ZIP).
 2. Doble clic en  instalar.bat
-   La primera vez descarga Python y las librerias (unos minutos, requiere internet).
+   Copia todo a %LOCALAPPDATA%\KmzOrtofoto y crea el acceso en "Enviar a".
+   Despues la carpeta descomprimida ya no hace falta y se puede borrar.
+
+   - Paquete completo (KmzOrtofoto.zip): trae Python incluido, se instala
+     en segundos y sin internet.
+   - Paquete ligero (KmzOrtofoto-ligero.zip): descarga Python y librerias
+     al instalar (3 a 5 minutos, requiere internet). No cerrar la ventana
+     aunque parezca detenida.
+
+Si aparece "Windows protegio su PC": Mas informacion -> Ejecutar de todas formas.
+
+Instalar o actualizar con un solo comando (pegar en PowerShell):
+  irm https://raw.githubusercontent.com/xjhona/herramientas/main/kmz-ortofoto/instalar.ps1 | iex
 
 
 USO
@@ -30,6 +41,7 @@ Los archivos se guardan junto al KMZ:
 
 IMPORTANTE: el DXF no contiene la imagen, solo la referencia.
 Mantener el .jpg en la misma carpeta que el .dxf.
+La conversion siempre necesita internet (descarga la imagen y la elevacion).
 
 Tambien funciona sobre un .dxf que ya este en UTM: solo agrega imagen y curvas
 (pregunta la zona: 17, 18 o 19 sur).
@@ -45,19 +57,18 @@ NOTAS
   Precision vertical aprox. +-2-4 m. Sirven para ver la pendiente general,
   NO reemplazan un levantamiento topografico.
 
-Opciones avanzadas (desde una consola, en esta carpeta):
+Opciones avanzadas (desde una consola, en %LOCALAPPDATA%\KmzOrtofoto):
   kmzortofoto.bat archivo.kmz --margen 40 --curvas 2 --epsg 32718
   (--curvas 0 = sin curvas)
 
 
 ACTUALIZAR
 ----------
-Reemplazar el archivo  kmzortofoto.py  de esta carpeta por la version nueva.
-No hace falta reinstalar ni volver a ejecutar instalar.bat.
-Ultima version: https://github.com/xjhona/herramientas/tree/main/kmz-ortofoto
-(abrir kmzortofoto.py -> boton "Download raw file").
+Volver a ejecutar el comando de PowerShell de arriba, o descomprimir el ZIP
+nuevo y ejecutar su instalar.bat (reemplaza la version anterior).
 
 
 DESINSTALAR
 -----------
-Doble clic en  desinstalar.bat  y luego borrar la carpeta.
+Doble clic en  %LOCALAPPDATA%\KmzOrtofoto\desinstalar.bat
+(quita el acceso de "Enviar a" y pregunta si borrar la carpeta).
