@@ -1,0 +1,57 @@
+DXF a KMZ (Google Earth)
+========================
+
+Convierte un DXF en coordenadas UTM (metros) a un KMZ para Google Earth. Es la herramienta
+inversa de KmzOrtofoto.
+
+INSTALACION (una sola vez)
+--------------------------
+No necesita Python, uv, internet ni permisos de administrador. Se instala en la carpeta del usuario:
+%LOCALAPPDATA%\DxfKmz  (p. ej. C:\Users\<usuario>\AppData\Local\DxfKmz).
+
+Portable (recomendado, sirve en PCs corporativas): descomprimir DxfKmz.zip en cualquier carpeta y
+doble clic en instalar.bat. Copia todo a %LOCALAPPDATA%\DxfKmz y crea el acceso en "Enviar a";
+despues la carpeta descomprimida se puede borrar. Si Windows muestra "Windows protegio su PC":
+"Mas informacion" -> "Ejecutar de todas formas" (o antes de descomprimir: clic derecho al ZIP ->
+Propiedades -> Desbloquear).
+
+Con un comando (PowerShell):
+   irm https://raw.githubusercontent.com/xjhona/herramientas/main/dxf-kmz/instalar.ps1 | iex
+
+DxfKmz-Setup.exe: hace lo mismo con doble clic, pero en PCs corporativas Windows puede pedir
+credenciales de administrador al abrir un "Setup.exe". En ese caso usar el ZIP.
+
+Para generar los paquetes (solo quien mantiene la herramienta): empaquetar.bat -> dist\DxfKmz.zip y
+dist\DxfKmz-Setup.exe. Necesita dxfkmz.exe en la carpeta (o una instalacion existente de donde tomarlo).
+
+USO
+---
+A) Archivo suelto: clic derecho sobre uno o varios .dxf -> Mostrar mas opciones -> Enviar a -> "DXF a KMZ".
+   Pregunta la zona UTM (17, 18, 19 sur; 18N norte; o codigo EPSG). Recuerda la ultima usada.
+
+B) Desde BricsCAD / AutoCAD:
+   1. APPLOAD -> cargar %LOCALAPPDATA%\DxfKmz\dxfkmz.lsp  (escribir %LOCALAPPDATA%\DxfKmz en la barra
+      de direcciones del cuadro de APPLOAD; el instalador muestra la ruta completa al terminar)
+   2. Comando DXFKMZ -> seleccionar objetos (Enter = todo el dibujo) -> indicar la zona.
+   El KMZ queda junto al DWG como <dibujo>_GE.kmz y se abre el Explorador.
+   Convierte lo que esta en pantalla: las capas apagadas o congeladas no se exportan.
+
+C) Consola:
+   dxfkmz.bat archivo.dxf [--epsg 18] [--excluir CAPA ...] [--relleno] [-o salida.kmz]
+
+QUE SE CONVIERTE
+----------------
+  LINE, LWPOLYLINE, POLYLINE, ARC, CIRCLE, ELLIPSE, SPLINE -> lineas (cerradas = poligonos sin relleno)
+  POINT e INSERT (bloques)                                  -> punto con el nombre del bloque
+  TEXT, MTEXT                                               -> etiqueta
+  Una carpeta de Google Earth por capa; color = color del objeto (o de su capa).
+  No se convierten: HATCH, cotas, imagenes, sombreados (se informa cuantos se omitieron).
+
+NOTAS
+-----
+- El dibujo debe estar en UTM real. Si hay objetos fuera de rango (p. ej. algo olvidado en 0,0)
+  se omiten con un aviso; si nada esta en rango, da error.
+- Se respetan las unidades del dibujo (INSUNITS): mm, cm, etc. se pasan a metros.
+- La capa FUENTES (creditos de KmzOrtofoto) no se exporta.
+- No sobrescribe el KMZ original: siempre termina en _GE.kmz.
+- La consola muestra el centro del dibujo y un enlace a Google Maps para comprobar que cayo donde debe.

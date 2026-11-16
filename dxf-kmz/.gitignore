@@ -1,0 +1,5 @@
+dist/
+dxfkmz.exe
+uv.exe
+__pycache__/
+*.pyc
