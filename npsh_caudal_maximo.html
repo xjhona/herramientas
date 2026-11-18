@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caudal máximo por NPSH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: hoja técnica de dos columnas — gráfico de curvas a la izquierda, panel de parámetros a la derecha; debajo, balance de energía y memoria de cálculo. */
+:root {
+  --bg: #f3f6f7;
+  --paper: #ffffff;
+  --ink: #12232b;
+  --muted: #5a6d76;
+  --line: #d5dfe3;
+  --grid: #e6edf0;
+  --accent: #0b6f8a;        /* NPSH disponible */
+  --accent-soft: #d8edf3;
+  --req: #1d2b31;           /* NPSH requerido */
+  --ok: #1f7a4d;
+  --ok-soft: #dcf1e5;
+  --warn: #a8660b;
+  --bad: #b3261e;
+  --bad-soft: #f8dfdc;
+  --band: rgba(179, 38, 30, 0.09);
+  --f-display: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1619; --paper: #142126; --ink: #e3ecef; --muted: #93a7af; --line: #26383f; --grid: #1d2c32;
+    --accent: #4cc0dd; --accent-soft: #143a45; --req: #e3ecef; --ok: #5cc98f; --ok-soft: #133526;
+    --warn: #e0a24a; --bad: #f2786d; --bad-soft: #3d1a17; --band: rgba(242, 120, 109, 0.11);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1619; --paper: #142126; --ink: #e3ecef; --muted: #93a7af; --line: #26383f; --grid: #1d2c32;
+  --accent: #4cc0dd; --accent-soft: #143a45; --req: #e3ecef; --ok: #5cc98f; --ok-soft: #133526;
+  --warn: #e0a24a; --bad: #f2786d; --bad-soft: #3d1a17; --band: rgba(242, 120, 109, 0.11);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(1.7rem, 3.4vw, 2.4rem); font-weight: 800; line-height: 1.1; }
+h2 { font-size: 1.15rem; font-weight: 700; }
+h3 { font-size: 0.95rem; font-weight: 700; }
+p { margin: 0; }
+.eyebrow { font-family: var(--f-mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.mono, .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+header.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 28px; border-bottom: 2px solid var(--ink); padding-bottom: 14px; }
+header.top .meta { display: grid; grid-template-columns: auto auto; gap: 2px 14px; font-size: 0.82rem; color: var(--muted); }
+header.top .meta b { color: var(--ink); font-weight: 500; font-family: var(--f-mono); }
+.lede { max-width: 68ch; color: var(--muted); margin-top: 8px; }
+
+/* Veredicto */
+.verdict { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.verdict > div { padding: 16px 20px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.verdict > div + div { border-left: 1px solid var(--line); }
+.verdict .big { font-family: var(--f-display); font-weight: 800; font-size: clamp(1.9rem, 4vw, 2.6rem); line-height: 1; font-variant-numeric: tabular-nums; }
+.verdict .big small { font-size: 0.45em; font-weight: 600; color: var(--muted); margin-left: 4px; }
+.verdict .main { background: var(--ok-soft); }
+.verdict .main .big { color: var(--ok); }
+.verdict .ficha .big { color: var(--bad); }
+.verdict .note { font-size: 0.82rem; color: var(--muted); }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 0.72rem; padding: 2px 8px; border-radius: 99px; width: fit-content; letter-spacing: 0.02em; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.warn { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+
+/* Cuerpo principal */
+.main-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 22px; align-items: start; }
+.panel { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 18px 20px; min-width: 0; }
+.chart-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; align-items: baseline; margin-bottom: 6px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.8rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 22px; height: 0; border-top: 3px solid var(--accent); }
+.legend i.req { border-top: 2px solid var(--req); }
+.legend i.mar { border-top: 2px dashed var(--req); }
+.legend i.zone { height: 10px; border: 0; background: var(--band); outline: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); }
+.chart-box { width: 100%; overflow-x: auto; }
+svg#chart { width: 100%; min-width: 520px; height: auto; display: block; touch-action: none; cursor: crosshair; }
+svg text { font-family: var(--f-mono); font-size: 11px; fill: var(--muted); }
+svg .axis-title { font-family: var(--f-body); font-size: 12px; fill: var(--ink); font-weight: 500; }
+.readout { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+.readout div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.readout .v { font-family: var(--f-mono); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.readout .k { font-size: 0.74rem; color: var(--muted); }
+
+/* Controles */
+.controls { display: flex; flex-direction: column; gap: 16px; }
+.controls h2 { display: flex; justify-content: space-between; align-items: center; }
+.ctl { display: flex; flex-direction: column; gap: 4px; }
+.ctl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ctl label { font-size: 0.86rem; font-weight: 500; }
+.ctl output { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 0.86rem; color: var(--accent); white-space: nowrap; }
+.ctl .hint { font-size: 0.74rem; color: var(--muted); }
+.num-in { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.num-in input { width: 76px; font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 0.84rem; color: var(--accent); text-align: right; padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); }
+.num-in input:hover { border-color: var(--accent); }
+.num-in input[aria-invalid="true"] { border-color: var(--bad); color: var(--bad); }
+.num-in span { font-family: var(--f-mono); font-size: 0.76rem; color: var(--muted); min-width: 2.2em; }
+.ctl .err { font-size: 0.74rem; color: var(--bad); }
+.ctl.fixed output { color: var(--ink); }
+input[type=range] { width: 100%; accent-color: var(--accent); margin: 2px 0; }
+select { width: 100%; font: inherit; font-size: 0.86rem; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); color: var(--ink); }
+.lbl { font-size: 0.86rem; font-weight: 500; }
+.acc { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.acc-h, .acc-r { display: grid; grid-template-columns: 18px minmax(0, 1fr) 50px 52px; gap: 6px; align-items: center; padding: 6px 8px; }
+.acc-r select { padding: 3px 2px; font-family: var(--f-mono); font-size: 0.78rem; }
+.acc-r .fix { font-family: var(--f-mono); font-size: 0.76rem; color: var(--muted); text-align: right; padding-right: 4px; }
+.acc-h { font-family: var(--f-mono); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--bg); }
+.acc-r { border-top: 1px solid var(--grid); font-size: 0.82rem; cursor: pointer; }
+.acc-r small { display: block; font-size: 0.7rem; color: var(--muted); }
+.acc-r input[type=checkbox] { accent-color: var(--accent); margin: 0; }
+.acc-r input[type=number] { width: 100%; font-family: var(--f-mono); font-size: 0.82rem; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); color: var(--ink); text-align: right; }
+.acc-r:has(input[type=checkbox]:not(:checked)) span { opacity: 0.5; }
+.loss { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.loss th { text-align: right; font-weight: 500; color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 6px 0 6px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.loss th:first-child { text-align: left; padding-left: 0; }
+.loss td { padding: 7px 0 7px 12px; border-bottom: 1px solid var(--grid); text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.loss td:first-child { text-align: left; padding-left: 0; font-family: var(--f-body); white-space: normal; }
+.loss td.share { width: 28%; min-width: 90px; }
+.loss .sbar { height: 8px; border-radius: 2px; background: color-mix(in srgb, var(--bad) 45%, transparent); }
+.loss tr.off td { opacity: 0.4; }
+.loss tr.total td { border-bottom: 0; border-top: 2px solid var(--ink); font-weight: 600; }
+.note-sum { font-size: 0.84rem; color: var(--muted); max-width: 80ch; }
+.note-sum b { color: var(--ink); font-family: var(--f-mono); font-weight: 500; }
+.calc { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.calc .step { border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.calc .step h3 { font-size: 0.9rem; }
+.calc .step.total { background: var(--accent-soft); border-color: transparent; }
+.calc .step.off { opacity: 0.45; }
+.calc .ln { font-family: var(--f-mono); font-size: 0.8rem; line-height: 1.6; overflow-x: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.calc .ln b { font-weight: 600; color: var(--ink); }
+.calc .ln .c { color: var(--muted); }
+.save-box { display: flex; flex-direction: column; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.save-bar { display: flex; flex-wrap: wrap; gap: 6px; }
+.save-bar button.primary { background: var(--accent); border-color: var(--accent); color: var(--paper); font-weight: 600; }
+.save-bar button.primary:hover { color: var(--paper); filter: brightness(1.08); }
+.save-bar button:disabled { opacity: 0.45; cursor: default; filter: none; }
+.save-status { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--muted); }
+.save-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.save-status[data-state="saved"] .dot { background: var(--ok); }
+.save-status[data-state="dirty"] .dot { background: var(--warn); }
+.save-status[data-state="error"] .dot { background: var(--bad); }
+.save-status[data-state="error"] { color: var(--bad); }
+.tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--line); margin-top: -8px; }
+.tabs button { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 10px 18px 9px; border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: transparent; color: var(--muted); cursor: pointer; margin-bottom: -1px; }
+.tabs button .t1 { font-family: var(--f-display); font-weight: 700; font-size: 1rem; }
+.tabs button .t2 { font-family: var(--f-mono); font-size: 0.72rem; }
+.tabs button:hover { color: var(--ink); border-color: transparent; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tabs button[aria-selected="true"] .t2 { color: var(--accent); }
+.group-label { font-family: var(--f-mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+button { font: inherit; font-size: 0.78rem; padding: 4px 10px; border-radius: 4px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+button:hover { border-color: var(--accent); color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Balance */
+.balance { display: flex; flex-direction: column; gap: 12px; }
+.bar { position: relative; display: flex; height: 46px; border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+.bar > div { display: flex; align-items: center; justify-content: center; font-family: var(--f-mono); font-size: 0.74rem; white-space: nowrap; overflow: hidden; min-width: 0; transition: flex-basis 0.15s ease; }
+.seg-pv { background: color-mix(in srgb, var(--muted) 30%, transparent); }
+.seg-hs { background: color-mix(in srgb, var(--warn) 32%, transparent); }
+.seg-hf { background: color-mix(in srgb, var(--bad) 30%, transparent); }
+.seg-hm { background: color-mix(in srgb, var(--bad) 18%, transparent); }
+.seg-na { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+.bar-scale { position: relative; height: 26px; }
+.bar-mark { position: absolute; top: -52px; height: 58px; border-left: 2px dashed var(--req); }
+.bar-mark span { position: absolute; top: 60px; transform: translateX(-50%); font-family: var(--f-mono); font-size: 0.7rem; color: var(--ink); white-space: nowrap; }
+.bal-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.bal-table td { padding: 5px 0; border-bottom: 1px solid var(--grid); }
+.bal-table td:last-child { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.bal-table tr.total td { border-bottom: 0; border-top: 2px solid var(--ink); font-weight: 600; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; vertical-align: -1px; }
+
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+.why { display: flex; flex-direction: column; gap: 12px; }
+.why ol { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 8px; max-width: 65ch; }
+.formula { font-family: var(--f-mono); font-size: 0.9rem; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; overflow-x: auto; white-space: nowrap; }
+.assume { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.assume th { text-align: left; font-weight: 500; color: var(--muted); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.assume td { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--grid); vertical-align: top; }
+.assume td.n { font-family: var(--f-mono); white-space: nowrap; }
+.tbl-wrap { overflow-x: auto; }
+footer { font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; max-width: 90ch; }
+
+@media (max-width: 920px) {
+  .main-grid { grid-template-columns: minmax(0, 1fr); }
+  .two { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .verdict { grid-template-columns: minmax(0, 1fr); }
+  .verdict > div + div { border-left: 0; border-top: 1px solid var(--line); }
+  .readout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .bar > div { transition: none; } }
+[hidden] { display: none !important; }
+.tabbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px; border-bottom: 1px solid var(--line); margin-top: -8px; }
+.tabbar .tabs { border-bottom: 0; margin-top: 0; }
+.tabs button .t3 { font-family: var(--f-mono); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--warn); }
+.tab-add { margin: 6px 0; }
+.pump-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 0.82rem; color: var(--ink); background: color-mix(in srgb, var(--warn) 9%, transparent); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius: 6px; padding: 8px 12px; }
+.pump-tools > span { flex: 1 1 300px; }
+.pump-msg { font-size: 0.8rem; color: var(--muted); }
+.cfg-err { background: var(--bad-soft); color: var(--bad); border: 1px solid var(--bad); border-radius: 6px; padding: 12px 16px; font-size: 0.86rem; }
+.cfg-err ul { margin: 6px 0 0; padding-left: 1.2em; }
+.empty { align-items: center; text-align: center; padding: 48px 20px; display: flex; flex-direction: column; gap: 12px; }
+.empty p { max-width: 60ch; color: var(--muted); }
+dialog#dlg { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink); }
+dialog#dlg::backdrop { background: rgba(10, 20, 25, 0.5); }
+#dlgForm { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
+.imp-read { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+.imp-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.imp-row input[type=file] { flex: 1 1 220px; min-width: 0; font-size: 0.82rem; }
+.imp-status { font-size: 0.8rem; color: var(--muted); }
+.imp-status:empty { display: none; }
+.imp-warn, .imp-err { margin: 0; padding-left: 1.2em; font-size: 0.8rem; display: flex; flex-direction: column; gap: 2px; }
+.imp-warn { color: var(--warn); }
+.imp-err { color: var(--bad); }
+.imp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 12px; align-items: end; }
+.imp-grid .group-label { grid-column: 1 / -1; margin-top: 4px; }
+.fld { display: flex; flex-direction: column; gap: 3px; font-size: 0.78rem; color: var(--muted); min-width: 0; }
+.fld input, .fld select, .fld textarea { font-family: var(--f-mono); font-size: 0.84rem; color: var(--ink); padding: 5px 7px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); width: 100%; }
+.fld textarea { min-height: 160px; resize: vertical; line-height: 1.5; }
+.fld.wide { grid-column: 1 / -1; }
+.dlg-actions { justify-content: flex-end; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow" id="pName">—</div>
+      <h1>Caudal máximo de bombeo según NPSH</h1>
+      <p class="lede" id="pLede">—</p>
+    </div>
+    <div class="meta">
+      <span>Bomba</span><b id="pPump">—</b>
+      <span>Ubicación</span><b id="pLoc">—</b>
+      <span>Fluido</span><b id="pFluid">—</b>
+      <span>Succión</span><b id="pPipe">—</b>
+    </div>
+  </header>
+
+  <div class="cfg-err" id="cfgErr" role="alert" hidden></div>
+
+  <div class="tabbar">
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Equipo de bombeo"></nav>
+    <button type="button" class="tab-add" id="addPump">+ Agregar bomba</button>
+  </div>
+  <div class="pump-tools" id="pumpTools" hidden>
+    <span id="ptText">Bomba agregada desde su ficha. Revise la curva NPSHr antes de usar el resultado.</span>
+    <button type="button" id="editPump">Editar datos</button>
+    <button type="button" id="delPump">Quitar bomba</button>
+  </div>
+  <p class="pump-msg" id="pumpMsg" aria-live="polite" hidden></p>
+
+  <section class="panel empty" id="empty" hidden>
+    <h2>No hay bombas cargadas</h2>
+    <p>Agregue la primera bomba con su ficha técnica. En claude.ai, Claude puede leer la ficha en PDF; si no, puede ingresar los datos a mano.</p>
+    <button type="button" class="primary" id="addPump2">+ Agregar bomba</button>
+  </section>
+
+  <div class="wrap" id="appMain" style="padding:0">
+  <section class="verdict" aria-label="Resultado">
+    <div class="main">
+      <span class="eyebrow">Caudal máximo recomendado</span>
+      <span class="big num" id="vQm">—</span>
+      <span class="note" id="vQmNote">NPSHa ≥ NPSHr + margen</span>
+    </div>
+    <div>
+      <span class="eyebrow">Límite de cavitación</span>
+      <span class="big num" id="vQl">—</span>
+      <span class="note">NPSHa = NPSHr, sin margen. No operar aquí.</span>
+    </div>
+    <div class="ficha">
+      <span class="eyebrow" id="vFLbl">Punto de la ficha</span>
+      <span class="big num" id="vF">—</span>
+      <span class="note" id="vFNote">—</span>
+    </div>
+  </section>
+
+  <div class="main-grid">
+    <section class="panel" aria-label="Curvas NPSH">
+      <div class="chart-head">
+        <h2>NPSH disponible vs. requerido</h2>
+        <div class="legend">
+          <span><i></i>NPSHa (sistema)</span>
+          <span><i class="req"></i>NPSHr (bomba)</span>
+          <span><i class="mar"></i>NPSHr + margen</span>
+          <span><i class="zone"></i>Zona no admisible</span>
+        </div>
+      </div>
+      <div class="chart-box"><svg id="chart" viewBox="0 0 720 420" role="img" aria-label="Gráfico de NPSH disponible y requerido en función del caudal"></svg></div>
+      <div class="readout" aria-live="polite">
+        <div><span class="k">Caudal evaluado</span><span class="v" id="rQ">—</span></div>
+        <div><span class="k">NPSHa</span><span class="v" id="rA">—</span></div>
+        <div><span class="k">NPSHr</span><span class="v" id="rR">—</span></div>
+        <div><span class="k">Holgura (NPSHa − NPSHr)</span><span class="v" id="rM">—</span></div>
+      </div>
+    </section>
+
+    <aside class="panel controls" aria-label="Parámetros">
+      <div class="save-box">
+        <h2>Parámetros</h2>
+        <div class="save-bar">
+          <button type="button" id="save" class="primary">Guardar cambios</button>
+          <button type="button" id="revert" hidden>Volver a lo guardado</button>
+          <button type="button" id="reset">Valores base</button>
+        </div>
+        <p class="save-status" id="saveStatus" aria-live="polite"><span class="dot"></span><span id="saveText">Cargando datos guardados…</span></p>
+      </div>
+
+      <div class="ctl">
+        <div class="row"><label for="q">Caudal a evaluar</label><span class="num-in"><input type="number" id="qn" inputmode="decimal" step="any" aria-label="Caudal a evaluar en l/s"><span>l/s</span></span></div>
+        <input type="range" id="q" min="0" max="10" step="0.1" value="5">
+        <span class="hint">También puede hacer clic sobre el gráfico.</span>
+      </div>
+
+      <div class="group-label">Instalación</div>
+      <div class="ctl">
+        <div class="row"><label for="hs">Altura de succión negativa</label><span class="num-in"><input type="number" id="hsn" inputmode="decimal" step="any" aria-label="Altura de succión en m"><span>m</span></span></div>
+        <input type="range" id="hs" min="0" max="6" step="0.1" value="3">
+        <span class="hint">Del nivel mínimo del agua al eje de la bomba. Un valor negativo indica bomba ahogada.</span>
+      </div>
+      <div class="ctl">
+        <div class="row"><label for="len">Longitud de la succión</label><span class="num-in"><input type="number" id="lenn" inputmode="decimal" step="any" aria-label="Longitud de la succión en m"><span>m</span></span></div>
+        <input type="range" id="len" min="5" max="60" step="1" value="20">
+        <span class="hint" id="lenHint"></span>
+      </div>
+      <div class="ctl">
+        <label for="dia">Tubería de succión</label>
+        <select id="dia"></select>
+        <div class="row" id="diaManRow" hidden><label for="diaMan">Diámetro interior</label><span class="num-in"><input type="number" id="diaMan" inputmode="decimal" step="any" aria-label="Diámetro interior en mm"><span>mm</span></span></div>
+      </div>
+      <div class="ctl">
+        <div class="row"><span class="lbl">Accesorios de la succión</span><output id="ko"></output></div>
+        <div class="acc" id="acc">
+          <div class="acc-h"><span></span><span>Accesorio</span><span>Ø</span><span>K</span></div>
+        </div>
+        <span class="hint">K es un coeficiente adimensional, no metros. La pérdida en metros de cada accesorio es K · v² / 2g, con la velocidad del diámetro del propio accesorio.</span>
+      </div>
+      <div class="ctl">
+        <div class="row"><label for="c">Coef. Hazen-Williams C</label><span class="num-in"><input type="number" id="cn" inputmode="decimal" step="any" aria-label="Coeficiente C"></span></div>
+        <input type="range" id="c" min="100" max="150" step="5" value="150">
+        <span class="hint">150 tubería plástica nueva; baja con incrustación o en acero.</span>
+      </div>
+
+      <div class="group-label">Sitio y fluido</div>
+      <div class="ctl">
+        <div class="row"><label for="z">Altitud</label><span class="num-in"><input type="number" id="zn" inputmode="decimal" step="any" aria-label="Altitud en msnm"><span>msnm</span></span></div>
+        <input type="range" id="z" min="0" max="1500" step="10" value="400">
+      </div>
+      <div class="ctl">
+        <div class="row"><label for="t">Temperatura del agua</label><span class="num-in"><input type="number" id="tn" inputmode="decimal" step="any" aria-label="Temperatura del agua en °C"><span>°C</span></span></div>
+        <input type="range" id="t" min="10" max="40" step="1" value="30">
+      </div>
+
+      <div class="group-label">Criterio</div>
+      <div class="ctl">
+        <div class="row"><label for="m">Margen de seguridad</label><span class="num-in"><input type="number" id="mn" inputmode="decimal" step="any" aria-label="Margen de seguridad en m"><span>m</span></span></div>
+        <input type="range" id="m" min="0" max="1.5" step="0.1" value="0.6">
+        <span class="hint">Sobre el NPSHr (NPSH3) de la curva.</span>
+      </div>
+    </aside>
+  </div>
+
+  <section class="panel balance" aria-label="Balance de energía en la succión">
+    <div class="chart-head">
+      <h2>Balance de energía en la succión a <span id="bQ" class="num">—</span></h2>
+      <span id="bPill" class="pill ok">—</span>
+    </div>
+    <p class="lede" style="margin:0">La presión atmosférica es toda la energía con la que cuenta el agua para subir hasta la bomba. Cada barra le resta una parte; lo que queda es el NPSH disponible y debe superar la línea punteada.</p>
+    <div>
+      <div class="bar" id="bar">
+        <div class="seg-pv" id="sPv" title="Presión de vapor"></div>
+        <div class="seg-hs" id="sHs" title="Altura de succión"></div>
+        <div class="seg-hf" id="sHf" title="Fricción en tubería"></div>
+        <div class="seg-hm" id="sHm" title="Pérdidas en accesorios"></div>
+        <div class="seg-na" id="sNa" title="NPSH disponible"></div>
+      </div>
+      <div class="bar-scale"><div class="bar-mark" id="bMark"><span id="bMarkLbl"></span></div></div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="bal-table">
+        <tbody>
+          <tr><td>Presión atmosférica (Patm/γ)</td><td id="tPa">—</td></tr>
+          <tr><td><span class="sw seg-pv"></span>Presión de vapor (Pv/γ)</td><td id="tPv">—</td></tr>
+          <tr><td><span class="sw seg-hs"></span>Altura de succión negativa</td><td id="tHs">—</td></tr>
+          <tr><td><span class="sw seg-hf"></span>Fricción en la tubería <span class="mono" id="tV" style="color:var(--muted)"></span></td><td id="tHf">—</td></tr>
+          <tr><td><span class="sw seg-hm"></span>Pérdidas en accesorios</td><td id="tHm">—</td></tr>
+          <tr class="total"><td><span class="sw seg-na"></span>NPSH disponible</td><td id="tNa">—</td></tr>
+          <tr><td>NPSH requerido + margen</td><td id="tNr">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel why" aria-label="Pérdidas en la succión">
+    <div class="chart-head">
+      <h2>Pérdidas en la succión a <span id="lQ" class="num">—</span>, tramo por tramo</h2>
+      <span class="pill bad" id="lTot">—</span>
+    </div>
+    <p class="lede" style="margin:0">Cada accesorio tiene un coeficiente K adimensional. Su pérdida en metros es <span class="mono">h = K · v² / 2g</span>, con la velocidad del diámetro donde está instalado. Por eso un accesorio de diámetro pequeño, como la reducción a la brida de la bomba, pesa más de lo que sugiere su K: ahí el agua va mucho más rápido. La tubería se calcula aparte con Hazen-Williams. Edite los K en el panel de parámetros.</p>
+    <div class="tbl-wrap">
+      <table class="loss">
+        <thead><tr><th>Tramo</th><th>Di</th><th>v</th><th>K</th><th>v²/2g</th><th>Pérdida</th><th>Peso</th></tr></thead>
+        <tbody id="lBody"></tbody>
+      </table>
+    </div>
+    <p class="note-sum" id="lNote"></p>
+  </section>
+
+  <section class="panel why" aria-label="Memoria de cálculo">
+    <div class="chart-head">
+      <h2>Memoria de cálculo a <span id="cQ" class="num">—</span></h2>
+      <span class="eyebrow">Cómo se obtiene cada valor</span>
+    </div>
+    <p class="lede" style="margin:0">ΣK no se multiplica por una sola velocidad, porque cada accesorio tiene su propio diámetro. Se calcula la pérdida de cada uno por separado y luego se suman, junto con la fricción de la tubería.</p>
+    <div class="calc" id="calc"></div>
+  </section>
+
+  <div class="two">
+    <section class="panel why">
+      <h2 id="wH">Qué limita el caudal</h2>
+      <ol>
+        <li><b>Las dos curvas van en sentidos opuestos.</b> Al subir el caudal, la bomba pide más NPSH y, al mismo tiempo, la succión pierde más energía. <span id="w1"></span></li>
+        <li><b>El punto más estrecho manda.</b> <span id="w2"></span></li>
+        <li><b>La curva de la bomba no deja margen.</b> El NPSHr del fabricante es el NPSH3, es decir, el punto en que la bomba ya perdió 3 % de altura por cavitación. <span id="w3tol"></span>Por eso se exige una holgura mínima de <span id="w3m">—</span> m.</li>
+        <li><b>Operar por encima tiene consecuencias.</b> La cavitación produce ruido, vibración, caída de caudal y erosión del impulsor y del cierre mecánico.</li>
+      </ol>
+    </section>
+
+    <section class="panel why">
+      <h2>Cómo se calcula</h2>
+      <div class="formula">NPSHa = Patm/γ − Pv/γ − Hs − hf − hm</div>
+      <div class="tbl-wrap">
+        <table class="assume">
+          <thead><tr><th>Término</th><th>Modelo</th></tr></thead>
+          <tbody>
+            <tr><td class="n">Patm</td><td id="aPatm">—</td></tr>
+            <tr><td class="n">Pv, ρ</td><td id="aFluid">—</td></tr>
+            <tr><td class="n">Hs</td><td>Desnivel entre el nivel mínimo del reservorio y el eje de la bomba</td></tr>
+            <tr><td class="n">hf</td><td>Hazen-Williams: 10.67·L·Q<sup>1.852</sup> / (C<sup>1.852</sup>·D<sup>4.87</sup>)</td></tr>
+            <tr><td class="n">hm</td><td>Σ K<sub>i</sub> · v<sub>i</sub>² / 2g, cada accesorio con la velocidad de su propio diámetro. K de referencia: Crane TP-410 y catálogos de válvulas; confirmar con cada fabricante.</td></tr>
+            <tr><td class="n">NPSHr</td><td id="nNpshr">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+  </div>
+
+  <footer id="foot"></footer>
+</div>
+
+<dialog id="dlg" aria-labelledby="dlgT">
+  <form method="dialog" id="dlgForm" novalidate>
+    <h2 id="dlgT">Agregar bomba</h2>
+    <section class="imp-read">
+      <div class="lbl">Leer la ficha técnica</div>
+      <p class="hint" id="readHint">Suba la ficha en PDF o imagen. Claude lee el modelo, la velocidad, la brida de succión, el punto de operación y la curva NPSHr, y llena el formulario. Revise los valores antes de agregar la bomba.</p>
+      <div class="imp-row" id="readRow">
+        <input type="file" id="fFile" accept="application/pdf,image/png,image/jpeg,image/webp" aria-label="Archivo de la ficha técnica">
+        <button type="button" id="fRead" class="primary">Leer ficha</button>
+        <button type="button" id="fStop" hidden>Detener</button>
+      </div>
+      <p class="imp-status" id="fStatus" aria-live="polite"></p>
+      <ul class="imp-warn" id="fWarn" hidden></ul>
+    </section>
+
+    <div class="imp-grid">
+      <div class="group-label">Bomba</div>
+      <label class="fld"><span>Nombre de la pestaña *</span><input type="text" id="fNombre" maxlength="40" placeholder="Ej. Riego norte"></label>
+      <label class="fld"><span>Modelo *</span><input type="text" id="fModelo" maxlength="80"></label>
+      <label class="fld"><span>Potencia [kW]</span><input type="text" id="fKw" inputmode="decimal"></label>
+      <label class="fld"><span>Velocidad [rpm] *</span><input type="text" id="fRpm" inputmode="decimal"></label>
+      <label class="fld"><span>Impulsor [mm]</span><input type="text" id="fImp" inputmode="decimal"></label>
+
+      <div class="group-label">Brida de succión de la bomba</div>
+      <label class="fld"><span>Designación</span><input type="text" id="fBrN" maxlength="20" placeholder="Ej. DN65"></label>
+      <label class="fld"><span>Diámetro interior [mm] *</span><input type="text" id="fBrD" inputmode="decimal"></label>
+
+      <div class="group-label">Punto de la ficha y curva NPSHr</div>
+      <label class="fld"><span>Unidad de caudal</span><select id="fQu"><option value="ls">l/s</option><option value="m3h">m³/h</option></select></label>
+      <label class="fld"><span>Caudal Q *</span><input type="text" id="fQ" inputmode="decimal"></label>
+      <label class="fld"><span>Altura H [m]</span><input type="text" id="fH" inputmode="decimal"></label>
+      <label class="fld"><span>NPSHr en ese punto [m]</span><input type="text" id="fR" inputmode="decimal"></label>
+      <label class="fld wide"><span>Curva NPSHr: un punto por línea, «caudal ; NPSHr [m]», en orden de caudal creciente. Puede pegar dos columnas desde Excel. *</span><textarea id="fCurva" spellcheck="false" placeholder="5 ; 1.69&#10;10 ; 2.02&#10;15 ; 2.52"></textarea></label>
+
+      <div class="group-label">Succión por defecto</div>
+      <label class="fld"><span>Tubería de succión</span><select id="fTub"></select></label>
+      <label class="fld" id="fTubDBox" hidden><span>Diámetro interior [mm] *</span><input type="text" id="fTubD" inputmode="decimal"></label>
+      <label class="fld"><span>Descripción (opcional)</span><input type="text" id="fTubT" maxlength="80" placeholder="Ej. HDPE 160 mm PN10"></label>
+    </div>
+
+    <ul class="imp-err" id="fErr" role="alert" hidden></ul>
+    <div class="save-bar dlg-actions">
+      <button type="button" id="fCancel">Cancelar</button>
+      <button type="button" id="fSave" class="primary">Agregar bomba</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+// =====================================================================
+//  CONFIGURACIÓN DEL PROYECTO
+//  Para usar la herramienta en otro proyecto, copie este archivo y edite
+//  solo este bloque. Las bombas también se pueden agregar desde la página
+//  con el botón "+ Agregar bomba", sin tocar este bloque.
+//  Unidades: caudal en l/s, alturas en m, diámetros en mm.
+// =====================================================================
+var PROYECTO = {
+  // Identificador corto, sin espacios. Separa lo guardado en el navegador de otros proyectos.
+  clave: "ejemplo",
+  nombre: "Proyecto de ejemplo · Bombeo desde reservorio",
+  ubicacion: "Sitio de ejemplo · 400 msnm",
+  fluido: "Agua",
+  // Notas que aparecen en la página. Pueden quedar vacías ("").
+  notaFluido: "",
+  notaLongitud: "Longitud total del tramo recto de succión.",
+  toleranciaCurva: "ISO 9906 grado 3B",
+  fuentes: "Datos de ejemplo: curvas NPSHr digitalizadas de fichas técnicas de fabricante (60 Hz). Reemplace el bloque PROYECTO con los datos de su instalación o agregue bombas con el botón «+ Agregar bomba». La longitud de succión es aproximada y los K de accesorios son valores típicos de referencia; el de la canastilla con válvula de pie varía mucho según el tipo y debe confirmarse con el fabricante.",
+
+  // Valores iniciales de los parámetros (cada bomba puede cambiarlos con su campo "base").
+  //   hs: altura de succión [m] · len: longitud de succión [m] · c: Hazen-Williams
+  //   z: altitud [msnm] · t: temperatura del agua [°C] · m: margen de seguridad [m]
+  base: { hs: 3, len: 20, c: 150, z: 400, t: 30, m: 0.6 },
+
+  // Tuberías de succión de la lista. di = diámetro interior [mm]. Siempre se puede ingresar otro a mano.
+  tuberias: [
+    { nombre: "HDPE 110 PE100 PN10 (SDR17)", material: "HDPE", di: 96.8 },
+    { nombre: "HDPE 110 PE80 PN10 (SDR13.6)", material: "HDPE", di: 93.8 },
+    { nombre: "HDPE 160 PE100 PN10 (SDR17)", material: "HDPE", di: 141 },
+    { nombre: "HDPE 160 PE80 PN10 (SDR13.6)", material: "HDPE", di: 136.4 }
+  ],
+
+  // Diámetros de los accesorios de tipo "elegible" (válvulas). di = diámetro interior [mm]
+  diametros: [
+    { nombre: "4\"", di: 102.3 },
+    { nombre: "6\"", di: 154.1 }
+  ],
+
+  // Accesorios de la succión, en el orden del flujo (del reservorio a la bomba).
+  //   id     : identificador único (letras y números)
+  //   tipo   : "elegible"   → diámetro elegido en el panel, de la lista "diametros"
+  //            "tuberia"    → mismo diámetro que la tubería (codos, tees)
+  //            "fijo"       → diámetro fijo; indicar di [mm]
+  //            "brida"      → diámetro de la brida de succión de la bomba (reducción final)
+  //            "ampliacion" → paso del accesorio "desde" a la tubería; K automático (Borda-Carnot)
+  //   k      : coeficiente de pérdida, adimensional (no aplica a "ampliacion")
+  //   activo : true si se incluye al inicio
+  //   nota   : texto pequeño opcional bajo el nombre
+  //   desde  : en "ampliacion" y "brida", id del accesorio anterior (para el diámetro de entrada)
+  accesorios: [
+    { id: "a1", nombre: "Canastilla + válvula de pie", tipo: "elegible", k: 2.5, activo: true },
+    { id: "a5", nombre: "Ampliación", tipo: "ampliacion", desde: "a1", activo: true, nota: "K automático; 0 si la válvula no es menor que la tubería" },
+    { id: "a2", nombre: "Codo 90° HDPE", tipo: "tuberia", k: 0.4, activo: false, nota: "Solo si la succión baja con codo" },
+    { id: "a3", nombre: "Válvula mariposa abierta", tipo: "elegible", k: 0.8, activo: true },
+    { id: "a4", nombre: "Reducción excéntrica", tipo: "brida", desde: "a3", k: 0.15, activo: true }
+  ],
+
+  // Bombas del proyecto. Datos de la ficha técnica.
+  //   id: identificador (minúsculas, números y guiones) · nombre: texto de la pestaña
+  //   brida: brida de succión (nombre y diámetro interior [mm])
+  //   ficha: punto de operación publicado (q [l/s], h [m], npshr [m])
+  //   curva: curva NPSHr digitalizada, pares [Q l/s, NPSHr m] en orden creciente de caudal
+  //   tuberia: diámetro interior [mm] de la tubería por defecto (de la lista "tuberias" o cualquier otro)
+  //   qInicial: caudal mostrado al abrir (opcional; por defecto el de la ficha)
+  //   accesorios: valores propios de esta bomba, por id: { d: diámetro, k: coeficiente, activo: true/false }
+  //   base: valores iniciales propios (opcional, mismas claves que "base")
+  //   ejes: escala del gráfico (opcional; si falta se calcula sola)
+  bombas: [
+    {
+      id: "bomba-a", nombre: "Bomba A", modelo: "NK 50-200/218", kw: 37, rpm: 3560, impulsor: 218,
+      brida: { nombre: "DN65", di: 65 },
+      ficha: { q: 26.77, h: 89.6, npshr: 4.71 },
+      curva: [[3.47,1.617],[4,1.643],[5,1.693],[6,1.748],[7,1.809],[8,1.875],[9,1.945],[10,2.023],[11,2.107],[12,2.198],[13,2.297],[14,2.405],[15,2.521],[16,2.645],[17,2.780],[18,2.926],[19,3.082],[20,3.248],[21,3.427],[22,3.618],[23,3.822],[24,4.038],[25,4.268],[26,4.513],[27,4.772],[28,5.046],[29,5.338],[30,5.642],[31,5.966],[32,6.306],[33,6.665],[34,7.038],[35,7.433],[36,7.848],[36.97,8.269]],
+      tuberia: 141, tuberiaTexto: "HDPE 160 mm PN10", qInicial: 25,
+      accesorios: { a1: { d: 154.1 }, a3: { d: 154.1 } },
+      ejes: { xMax: 38, xPaso: 5, yMax: 10, yPaso: 2 }
+    },
+    {
+      id: "bomba-b", nombre: "Bomba B", modelo: "NK 40-160/162", kw: 11, rpm: 3560, impulsor: 162,
+      brida: { nombre: "DN65", di: 65 },
+      ficha: { q: 12.52, h: 48.95, npshr: 3.41 },
+      curva: [[1.78,2.301],[2,2.307],[2.5,2.323],[3,2.341],[3.5,2.362],[4,2.385],[4.5,2.411],[5,2.440],[5.5,2.472],[6,2.507],[6.5,2.547],[7,2.590],[7.5,2.636],[8,2.688],[8.5,2.744],[9,2.805],[9.5,2.873],[10,2.945],[10.5,3.025],[11,3.111],[11.5,3.204],[12,3.303],[12.5,3.411],[13,3.526],[13.5,3.649],[14,3.780],[14.5,3.920],[15,4.068],[15.5,4.224],[16,4.389],[16.5,4.561],[17,4.742],[17.5,4.930],[18,5.126],[18.92,5.505]],
+      tuberia: 96.8, tuberiaTexto: "HDPE 110 mm PN10", qInicial: 12.5,
+      accesorios: { a1: { d: 102.3 }, a3: { d: 102.3 } },
+      ejes: { xMax: 20, xPaso: 2, yMax: 8, yPaso: 2 }
+    }
+  ]
+};
+// =====================================================================
+//  FIN DE LA CONFIGURACIÓN. No es necesario editar nada debajo.
+// =====================================================================
+</script>
+
+<script>
+(function () {
+  "use strict";
+  var CFG = PROYECTO;
+  var G = 9.81;
+  var $ = function (id) { return document.getElementById(id); };
+  var fmt = function (x, d) { return x.toFixed(d === undefined ? 2 : d); };
+  var num = function (x) { return typeof x === "number" && isFinite(x); };
+  function setOut(id, txt) { $(id).textContent = txt; }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]; }); }
+  function mk(tag, attrs, text, parent) {
+    var e = document.createElement(tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== null && text !== undefined) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  // ---------- Validación de la configuración y de las bombas ----------
+  var TIPOS = { elegible: 1, tuberia: 1, fijo: 1, brida: 1, ampliacion: 1 };
+  function pumpErrors(b, where) {
+    var e = [], add = function (m) { e.push(where ? where + ": " + m : cap(m)); };
+    if (!b || typeof b !== "object") { add("no es un objeto válido."); return e; }
+    if (typeof b.id !== "string" || !/^[a-z0-9-]{1,48}$/.test(b.id)) add("el id solo puede tener minúsculas, números y guiones.");
+    if (typeof b.nombre !== "string" || !b.nombre.trim()) add("falta el nombre de la pestaña.");
+    if (typeof b.modelo !== "string" || !b.modelo.trim()) add("falta el modelo.");
+    if (!num(b.rpm) || b.rpm <= 0) add("falta la velocidad en rpm.");
+    if (!b.brida || !num(b.brida.di) || b.brida.di <= 0) add("falta el diámetro interior de la brida de succión.");
+    if (!b.ficha || !num(b.ficha.q) || b.ficha.q <= 0) add("falta el caudal del punto de la ficha.");
+    var c = b.curva;
+    if (!Array.isArray(c) || c.length < 3) add("la curva NPSHr necesita al menos 3 puntos.");
+    else {
+      for (var i = 0; i < c.length; i++) {
+        if (!Array.isArray(c[i]) || !num(c[i][0]) || !num(c[i][1]) || c[i][0] < 0 || c[i][1] < 0) { add("el punto " + (i + 1) + " de la curva no es válido."); break; }
+        if (i && c[i][0] <= c[i - 1][0]) { add("los caudales de la curva deben ir en orden creciente (revise el punto " + (i + 1) + ")."); break; }
+      }
+    }
+    if (!num(b.tuberia) || b.tuberia < 10 || b.tuberia > 2000) add("falta el diámetro interior de la tubería de succión (10 a 2000 mm).");
+    return e;
+  }
+  function configErrors() {
+    var e = [];
+    if (!CFG || typeof CFG !== "object") return ["No se encontró el bloque PROYECTO."];
+    if (typeof CFG.clave !== "string" || !/^[A-Za-z0-9_-]+$/.test(CFG.clave)) e.push("clave: use solo letras, números, guiones o _.");
+    ["hs", "len", "c", "z", "t", "m"].forEach(function (k) { if (!CFG.base || !num(CFG.base[k])) e.push("base: falta el valor " + k + "."); });
+    if (!Array.isArray(CFG.tuberias)) e.push("tuberias debe ser una lista (puede estar vacía: []).");
+    else CFG.tuberias.forEach(function (t, i) { if (!t || !num(t.di) || t.di <= 0) e.push("Tubería " + (i + 1) + ": falta di."); });
+    if (!Array.isArray(CFG.diametros)) e.push("diametros debe ser una lista (puede estar vacía: []).");
+    else CFG.diametros.forEach(function (d, i) { if (!d || !num(d.di) || d.di <= 0) e.push("Diámetro " + (i + 1) + ": falta di."); });
+    if (!Array.isArray(CFG.accesorios)) e.push("accesorios debe ser una lista (puede estar vacía: []).");
+    else {
+      var seen = {};
+      CFG.accesorios.forEach(function (a, i) {
+        var w = "Accesorio " + (a && a.nombre || i + 1);
+        if (!a || typeof a.id !== "string" || !/^[A-Za-z][A-Za-z0-9]*$/.test(a.id)) e.push(w + ": el id debe empezar con letra y tener solo letras y números.");
+        else if (seen[a.id]) e.push(w + ": id repetido.");
+        if (!a) return;
+        if (!TIPOS[a.tipo]) e.push(w + ": tipo debe ser \"elegible\", \"tuberia\", \"fijo\", \"brida\" o \"ampliacion\".");
+        if (a.tipo !== "ampliacion" && (!num(a.k) || a.k < 0)) e.push(w + ": falta k.");
+        if (a.tipo === "fijo" && (!num(a.di) || a.di <= 0)) e.push(w + ": falta di.");
+        if (a.tipo === "elegible" && !(CFG.diametros || []).length) e.push(w + ": la lista diametros está vacía.");
+        if (a.tipo === "ampliacion" && !seen[a.desde]) e.push(w + ": \"desde\" debe ser el id de un accesorio anterior.");
+        if (a.tipo === "brida" && a.desde !== undefined && !seen[a.desde]) e.push(w + ": \"desde\" debe ser el id de un accesorio anterior.");
+        seen[a.id] = true;
+      });
+    }
+    if (!Array.isArray(CFG.bombas)) e.push("bombas debe ser una lista (puede estar vacía: []).");
+    else {
+      var ids = {};
+      CFG.bombas.forEach(function (b, i) {
+        e = e.concat(pumpErrors(b, "Bomba " + (b && b.nombre || i + 1)));
+        if (b && ids[b.id]) e.push("Bomba " + b.nombre + ": id repetido.");
+        if (b) ids[b.id] = true;
+      });
+    }
+    return e;
+  }
+  var cfgErrs = configErrors();
+  if (cfgErrs.length) {
+    var box = $("cfgErr"); box.hidden = false;
+    mk("b", {}, "Hay errores en el bloque de configuración PROYECTO:", box);
+    var ul = mk("ul", {}, null, box);
+    cfgErrs.forEach(function (m) { mk("li", {}, m, ul); });
+    $("appMain").hidden = true; $("addPump").hidden = true;
+    return;
+  }
+
+  // ---------- Estado general ----------
+  var ACC = CFG.accesorios, ACC_BY = {};
+  ACC.forEach(function (a) { ACC_BY[a.id] = a; });
+  var IMPORTED = [], PUMPS = {}, ORDER = [];
+  var P = null, NPSHR, QMIN, QMAX, Q_FICHA, pumpId = null, STATE = {};
+  var initialHash = location.hash.slice(1), pickedTab = false;
+
+  var NUM = {
+    q: { lo: null, hi: null, dec: 2 }, hs: { lo: -10, hi: 9.5, dec: 2 }, len: { lo: 0.1, hi: 5000, dec: 1 },
+    c: { lo: 60, hi: 160, dec: 0 }, z: { lo: 0, hi: 5000, dec: 0 }, t: { lo: 0, hi: 90, dec: 1 }, m: { lo: 0, hi: 5, dec: 2 }
+  };
+  var CTRL = ["q", "hs", "len", "dia", "diaMan", "c", "z", "t", "m"], CHK = [], SELECTS = { dia: true };
+  ACC.forEach(function (a) {
+    CHK.push(a.id + "on");
+    if (a.tipo !== "ampliacion") CTRL.push(a.id + "k");
+    if (a.tipo === "elegible") { CTRL.push(a.id + "d"); SELECTS[a.id + "d"] = true; }
+  });
+
+  function dLabel(mm) {
+    for (var i = 0; i < CFG.diametros.length; i++) if (Math.abs(CFG.diametros[i].di - mm) < 0.05) return CFG.diametros[i].nombre;
+    return fmt(mm, 1) + " mm";
+  }
+  function bridaName(b) { return b.brida.nombre || "Ø" + fmt(b.brida.di, 0) + " mm"; }
+  function pipeOption(mm) {
+    for (var i = 0; i < CFG.tuberias.length; i++) if (Math.abs(CFG.tuberias[i].di - mm) < 0.005) return CFG.tuberias[i];
+    return null;
+  }
+  function pipeLabel(t) { return t.nombre + " · Di " + fmt(t.di, 1) + " mm"; }
+  function pipeText(b) { var t = pipeOption(b.tuberia); return b.tuberiaTexto || (t ? t.nombre : "Di " + fmt(b.tuberia, 1) + " mm"); }
+
+  // ---------- Construcción de la interfaz desde la configuración ----------
+  function fillPipeSelect(sel) {
+    CFG.tuberias.forEach(function (t) { mk("option", { value: String(t.di) }, pipeLabel(t), sel); });
+    mk("option", { value: "custom" }, "Otro: ingresar diámetro interior", sel);
+  }
+  fillPipeSelect($("dia"));
+  (function buildAcc() {
+    var box = $("acc");
+    if (!ACC.length) { mk("p", { class: "hint", style: "margin:0;padding:6px 8px" }, "No hay accesorios configurados.", box); return; }
+    ACC.forEach(function (a) {
+      var r = mk("label", { class: "acc-r" }, null, box);
+      mk("input", { type: "checkbox", id: a.id + "on" }, null, r);
+      var s = mk("span", {}, null, r);
+      mk("span", { id: a.id + "lbl" }, a.nombre, s);
+      mk("small", { id: a.id + "sm" }, a.nota || "", s);
+      if (a.tipo === "elegible") {
+        var sel = mk("select", { id: a.id + "d", "aria-label": "Diámetro " + a.nombre }, null, r);
+        CFG.diametros.forEach(function (d) { mk("option", { value: String(d.di) }, d.nombre, sel); });
+      } else {
+        mk("span", { class: "fix", id: a.id + "dd" }, a.tipo === "tuberia" ? "tub." : a.tipo === "fijo" ? fmt(a.di, 0) : a.tipo === "ampliacion" ? "auto" : "—", r);
+      }
+      if (a.tipo === "ampliacion") mk("span", { class: "fix", id: a.id + "kv" }, "—", r);
+      else mk("input", { type: "number", id: a.id + "k", min: "0", max: "50", step: "0.05", "aria-label": "K " + a.nombre }, null, r);
+    });
+  })();
+  setOut("pName", CFG.nombre || "");
+  setOut("pLoc", CFG.ubicacion || "—");
+  setOut("lenHint", CFG.notaLongitud || "Longitud total del tramo recto de succión.");
+  setOut("w3tol", CFG.toleranciaCurva ? "La curva además tiene tolerancia " + CFG.toleranciaCurva + ". " : "");
+  setOut("aFluid", (CFG.fluido || "Agua") + " a la temperatura indicada." + (CFG.notaFluido ? " " + CFG.notaFluido : ""));
+
+  function rebuildPumps() {
+    PUMPS = {}; ORDER = [];
+    CFG.bombas.concat(IMPORTED).forEach(function (b) { if (!PUMPS[b.id]) { PUMPS[b.id] = b; ORDER.push(b.id); } });
+    var nav = $("tabs"); nav.textContent = "";
+    ORDER.forEach(function (id) {
+      var b = PUMPS[id];
+      var btn = mk("button", { type: "button", role: "tab", "data-pump": id, "aria-selected": id === pumpId ? "true" : "false" }, null, nav);
+      mk("span", { class: "t1" }, b.nombre, btn);
+      mk("span", { class: "t2" }, b.modelo + (num(b.kw) ? " · " + b.kw + " kW" : ""), btn);
+      if (b.importada) mk("span", { class: "t3" }, "desde ficha", btn);
+      btn.addEventListener("click", function () { pickedTab = true; selectPump(id); });
+    });
+    $("tabs").hidden = !ORDER.length;
+  }
+  function updateFooter() {
+    var rpms = [];
+    ORDER.forEach(function (id) { if (rpms.indexOf(PUMPS[id].rpm) < 0) rpms.push(PUMPS[id].rpm); });
+    var t = (CFG.fuentes ? CFG.fuentes + " " : "");
+    if (IMPORTED.length) t += "Las bombas marcadas «desde ficha» usan datos leídos o ingresados desde la página; verifíquelos contra la ficha original. ";
+    if (rpms.length) t += "Resultados válidos para operación a velocidad nominal de " + rpms.join(" / ") + " rpm.";
+    setOut("foot", t);
+  }
+
+  // ---------- Parámetros ----------
+  function limits(id) {
+    if (id === "q") return { lo: Math.ceil(QMIN * 100) / 100, hi: Math.floor(QMAX * 100) / 100 };
+    return NUM[id];
+  }
+  function trimNum(x, dec) { return String(Math.round(x * Math.pow(10, dec)) / Math.pow(10, dec)); }
+  function setVal(id, x) {
+    var L = limits(id), r = $(id);
+    x = Math.max(L.lo, Math.min(L.hi, +x));
+    if (x > +r.max) r.max = x;
+    if (x < +r.min) r.min = x;
+    r.value = x;
+    var n = $(id + "n"); n.value = trimNum(x, NUM[id].dec); n.setAttribute("aria-invalid", "false");
+  }
+  function val(id) {
+    var x = parseFloat($(id + "n").value), L = limits(id);
+    return isFinite(x) && x >= L.lo && x <= L.hi ? x : +$(id).value;
+  }
+  function pipeDmm() {
+    if ($("dia").value === "custom") {
+      var x = parseFloat($("diaMan").value);
+      return isFinite(x) && x >= 10 && x <= 2000 ? x : P.tuberia;
+    }
+    return +$("dia").value;
+  }
+  function pipeMat() { var t = $("dia").value === "custom" ? null : pipeOption(+$("dia").value); return t && t.material ? t.material : ""; }
+  function pipeName(p) { return "Tubería " + (p.mat ? p.mat + " " : "") + p.len + " m"; }
+
+  function npshr(q) {
+    if (q <= QMIN) return NPSHR[0][1];
+    for (var i = 1; i < NPSHR.length; i++) {
+      if (q <= NPSHR[i][0]) {
+        var a = NPSHR[i - 1], b = NPSHR[i];
+        return a[1] + (q - a[0]) / (b[0] - a[0]) * (b[1] - a[1]);
+      }
+    }
+    return NPSHR[NPSHR.length - 1][1];
+  }
+  function patm(z) { return 101325 * Math.pow(1 - 2.25577e-5 * z, 5.25588); }
+  function pv(t) { return Math.pow(10, 8.07131 - 1730.63 / (233.426 + t)) * 133.322; }
+  function rho(t) { return 1000 * (1 - (t + 288.9414) / (508929.2 * (t + 68.12963)) * Math.pow(t - 3.9863, 2)); }
+
+  function params() {
+    var pipeD = pipeDmm() / 1000, dOf = {};
+    return {
+      q: val("q"), hs: val("hs"), len: val("len"), d: pipeD, mat: pipeMat(),
+      c: val("c"), z: val("z"), t: val("t"), m: val("m"),
+      acc: ACC.map(function (a) {
+        var on = !!$(a.id + "on").checked, d, k = 0, name = a.nombre, note = "";
+        if (a.tipo === "elegible") { d = +$(a.id + "d").value / 1000; name += " " + dLabel(d * 1000); }
+        else if (a.tipo === "tuberia") d = pipeD;
+        else if (a.tipo === "fijo") d = a.di / 1000;
+        else if (a.tipo === "brida") {
+          d = P.brida.di / 1000;
+          name += " " + (a.desde !== undefined ? dLabel(dOf[a.desde] * 1000) : "tubería") + " → " + bridaName(P);
+        } else {
+          // Borda-Carnot referido a la velocidad aguas arriba (diámetro del accesorio "desde")
+          d = dOf[a.desde];
+          var b2 = Math.pow(Math.min(1, d / pipeD), 2);
+          k = Math.pow(1 - b2, 2);
+          note = d >= pipeD
+            ? "El accesorio (" + fmt(d * 1000, 1) + " mm) no es menor que la tubería (" + fmt(pipeD * 1000, 1) + " mm): no hay ampliación, K"
+            : "K = (1 − (d/D)²)² = (1 − (" + fmt(d * 1000, 1) + "/" + fmt(pipeD * 1000, 1) + ")²)²";
+          name = a.nombre + " " + dLabel(d * 1000) + " → tubería " + fmt(pipeD * 1000, 1) + " mm";
+        }
+        if (a.tipo !== "ampliacion") { k = parseFloat($(a.id + "k").value); k = isFinite(k) && k > 0 ? k : 0; }
+        dOf[a.id] = d;
+        return { id: a.id, tipo: a.tipo, name: name, d: d, on: on, k: k, note: note };
+      })
+    };
+  }
+  function terms(p, qls) {
+    var g = rho(p.t) * G, q = qls / 1000, A = Math.PI * p.d * p.d / 4, v = q / A;
+    var hf = 10.67 * p.len * Math.pow(q, 1.852) / (Math.pow(p.c, 1.852) * Math.pow(p.d, 4.87));
+    var hm = 0, items = p.acc.map(function (a) {
+      var d = a.d, area = Math.PI * d * d / 4, vi = q / area, hvel = vi * vi / (2 * G), h = a.on ? a.k * hvel : 0;
+      hm += h;
+      return { name: a.name, d: d, area: area, v: vi, k: a.k, hvel: hvel, h: h, on: a.on, note: a.note };
+    });
+    var ha = patm(p.z) / g, hv = pv(p.t) / g;
+    return { ha: ha, hv: hv, hs: p.hs, hf: hf, hm: hm, v: v, items: items, na: ha - hv - p.hs - hf - hm };
+  }
+  // Primer caudal en que NPSHa - NPSHr < margen
+  function crossing(p, margin) {
+    var f = function (q) { return terms(p, q).na - npshr(q) - margin; };
+    if (f(QMIN) < 0) return { q: null, below: true };
+    if (f(QMAX) >= 0) return { q: null, above: true };
+    var lo = QMIN, hi = QMAX;
+    for (var i = 0; i < 60; i++) { var mid = (lo + hi) / 2; if (f(mid) >= 0) lo = mid; else hi = mid; }
+    return { q: lo };
+  }
+
+  // ---------- Gráfico ----------
+  var svg = $("chart"), NS = "http://www.w3.org/2000/svg";
+  var W = 720, H = 420, L = 56, R = 18, T = 18, B = 50;
+  var X0 = 0, X1 = 38, Y0 = 0, Y1 = 10, XS = 5, YS = 2;
+  var sx = function (q) { return L + (q - X0) / (X1 - X0) * (W - L - R); };
+  var sy = function (h) { return T + (1 - (h - Y0) / (Y1 - Y0)) * (H - T - B); };
+  var ix = function (px) { return X0 + (px - L) / (W - L - R) * (X1 - X0); };
+  function el(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    (parent || svg).appendChild(e); return e;
+  }
+  function niceStep(x) {
+    var p = Math.pow(10, Math.floor(Math.log(x) / Math.LN10)), f = x / p;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+  }
+  function setAxes() {
+    var ej = P.ejes || {}, rMax = 0;
+    NPSHR.forEach(function (pt) { rMax = Math.max(rMax, pt[1]); });
+    XS = num(ej.xPaso) && ej.xPaso > 0 ? ej.xPaso : niceStep(QMAX / 7);
+    X1 = num(ej.xMax) && ej.xMax > 0 ? ej.xMax : Math.ceil(QMAX * 1.02 / XS) * XS;
+    var yRaw = rMax * 1.15 + 1;
+    YS = num(ej.yPaso) && ej.yPaso > 0 ? ej.yPaso : niceStep(yRaw / 5);
+    Y1 = num(ej.yMax) && ej.yMax > 0 ? ej.yMax : Math.ceil(yRaw / YS) * YS;
+  }
+  var gGrid = el("g", {}), gZone = el("g", {}), gCurves = el("g", {}), gMarks = el("g", {}), gHover = el("g", {});
+  function drawAxes() {
+    while (gGrid.firstChild) gGrid.removeChild(gGrid.firstChild);
+    for (var i = 0; i * XS <= X1 - XS * 0.4; i++) {
+      var q = i * XS;
+      el("line", { x1: sx(q), x2: sx(q), y1: T, y2: H - B, stroke: "var(--grid)", "stroke-width": 1 }, gGrid);
+      el("text", { x: sx(q), y: H - B + 16, "text-anchor": "middle" }, gGrid).textContent = trimNum(q, 3);
+    }
+    for (var j = 0; j * YS <= Y1 + 1e-9; j++) {
+      var h = j * YS;
+      el("line", { x1: L, x2: W - R, y1: sy(h), y2: sy(h), stroke: "var(--grid)", "stroke-width": 1 }, gGrid);
+      el("text", { x: L - 8, y: sy(h) + 4, "text-anchor": "end" }, gGrid).textContent = trimNum(h, 3);
+    }
+    el("line", { x1: L, x2: W - R, y1: sy(0), y2: sy(0), stroke: "var(--muted)", "stroke-width": 1 }, gGrid);
+    el("line", { x1: L, x2: L, y1: T, y2: H - B, stroke: "var(--muted)", "stroke-width": 1 }, gGrid);
+    el("text", { x: (L + W - R) / 2, y: H - 10, "text-anchor": "middle", class: "axis-title" }, gGrid).textContent = "Caudal Q [l/s]";
+    var yt = el("text", { x: 16, y: (T + H - B) / 2, "text-anchor": "middle", class: "axis-title", transform: "rotate(-90 16 " + (T + H - B) / 2 + ")" }, gGrid);
+    yt.textContent = "NPSH [m]";
+  }
+  var zoneRect = el("rect", { y: T, height: H - T - B, fill: "var(--band)" }, gZone);
+  var zoneLbl = el("text", { y: T + 16, "text-anchor": "start", style: "fill:var(--bad);font-family:var(--f-body);font-size:12px;font-weight:600" }, gZone);
+  var pReqM = el("path", { fill: "none", stroke: "var(--req)", "stroke-width": 1.6, "stroke-dasharray": "6 4" }, gCurves);
+  var pReq = el("path", { fill: "none", stroke: "var(--req)", "stroke-width": 2 }, gCurves);
+  var pAv = el("path", { fill: "none", stroke: "var(--accent)", "stroke-width": 3, "stroke-linecap": "round" }, gCurves);
+  var lblAv = el("text", { "text-anchor": "end", style: "fill:var(--accent);font-family:var(--f-body);font-size:12px;font-weight:600" }, gCurves);
+  var lblReq = el("text", { "text-anchor": "end", style: "fill:var(--req);font-family:var(--f-body);font-size:12px;font-weight:600" }, gCurves);
+
+  var mOk = el("g", {}, gMarks);
+  var mOkLine = el("line", { stroke: "var(--ok)", "stroke-width": 1.5, "stroke-dasharray": "3 3" }, mOk);
+  var mOkDot = el("circle", { r: 5, fill: "var(--ok)", stroke: "var(--paper)", "stroke-width": 2 }, mOk);
+  var mOkTxt = el("text", { "text-anchor": "middle", style: "fill:var(--ok);font-weight:500" }, mOk);
+  var mF = el("g", {}, gMarks);
+  var mFLine = el("line", { stroke: "var(--bad)", "stroke-width": 1.2 }, mF);
+  var mFDotA = el("circle", { r: 4.5, fill: "var(--accent)", stroke: "var(--paper)", "stroke-width": 2 }, mF);
+  var mFDotR = el("circle", { r: 4.5, fill: "var(--bad)", stroke: "var(--paper)", "stroke-width": 2 }, mF);
+  var mFTxt = el("text", { "text-anchor": "middle", style: "fill:var(--bad);font-weight:500" }, mF);
+  var hLine = el("line", { y1: T, y2: H - B, stroke: "var(--ink)", "stroke-width": 1, opacity: 0.55 }, gHover);
+  var hA = el("circle", { r: 4, fill: "var(--accent)" }, gHover);
+  var hR = el("circle", { r: 4, fill: "var(--req)" }, gHover);
+  var hTxt = el("text", { "text-anchor": "start", style: "fill:var(--ink)" }, gHover);
+
+  function pathOf(fn) {
+    var d = "", st = (QMAX - QMIN) / 240;
+    for (var i = 0; i <= 240; i++) {
+      var q = QMIN + i * st;
+      var y = Math.max(Y0 - 0.5, Math.min(Y1 + 0.5, fn(q)));
+      d += (d ? "L" : "M") + sx(q).toFixed(1) + " " + sy(y).toFixed(1);
+    }
+    return d;
+  }
+
+  function render() {
+    if (!P) return;
+    var p = params();
+    setOut("ko", "ΣK = " + fmt(p.acc.reduce(function (s, a) { return s + (a.on ? a.k : 0); }, 0)));
+    p.acc.forEach(function (it) {
+      if (it.tipo === "ampliacion") setOut(it.id + "kv", fmt(it.k));
+      if (it.tipo === "brida" || it.tipo === "ampliacion") setOut(it.id + "lbl", it.name);
+      if (it.tipo === "brida") {
+        setOut(it.id + "dd", bridaName(P));
+        if (!ACC_BY[it.id].nota) setOut(it.id + "sm", "K y v referidos a la brida " + bridaName(P));
+      }
+    });
+    $("diaManRow").hidden = $("dia").value !== "custom";
+    setOut("pFluid", (CFG.fluido || "Agua") + " a " + p.t + " °C");
+    setOut("aPatm", "Atmósfera estándar según la altitud (" + p.z + " msnm)");
+    setOut("w3m", fmt(p.m, 1));
+
+    var cm = crossing(p, p.m), cl = crossing(p, 0);
+    var clip = function (x) { return Math.max(Y0 - 0.5, Math.min(Y1 + 0.5, x)); };
+    pReq.setAttribute("d", pathOf(npshr));
+    pReqM.setAttribute("d", pathOf(function (q) { return npshr(q) + p.m; }));
+    pAv.setAttribute("d", pathOf(function (q) { return terms(p, q).na; }));
+    var qL = QMAX - (QMAX - QMIN) * 0.02;
+    lblAv.setAttribute("x", sx(QMAX) - 2); lblAv.setAttribute("y", sy(clip(terms(p, QMAX).na)) + (terms(p, QMAX).na < npshr(QMAX) ? 16 : -8));
+    lblAv.textContent = "NPSHa";
+    lblReq.setAttribute("x", sx(qL) - 8); lblReq.setAttribute("y", sy(clip(npshr(qL))) - 8);
+    lblReq.textContent = "NPSHr";
+    lblReq.setAttribute("visibility", npshr(qL) <= Y1 ? "visible" : "hidden");
+
+    // Zona no admisible
+    var zStart = cm.q !== null ? cm.q : (cm.below ? X0 : null);
+    if (zStart !== null) {
+      zoneRect.setAttribute("x", sx(zStart)); zoneRect.setAttribute("width", Math.max(0, sx(X1) - sx(zStart))); zoneRect.setAttribute("visibility", "visible");
+      zoneLbl.setAttribute("x", sx(zStart) + 8); zoneLbl.textContent = "Riesgo de cavitación"; zoneLbl.setAttribute("visibility", sx(X1) - sx(zStart) > 130 ? "visible" : "hidden");
+    } else { zoneRect.setAttribute("visibility", "hidden"); zoneLbl.setAttribute("visibility", "hidden"); }
+
+    // Marcador del caudal máximo recomendado
+    if (cm.q !== null) {
+      var yq = npshr(cm.q) + p.m;
+      mOk.setAttribute("visibility", "visible");
+      mOkLine.setAttribute("x1", sx(cm.q)); mOkLine.setAttribute("x2", sx(cm.q)); mOkLine.setAttribute("y1", sy(clip(yq))); mOkLine.setAttribute("y2", sy(0));
+      mOkDot.setAttribute("cx", sx(cm.q)); mOkDot.setAttribute("cy", sy(clip(yq)));
+      mOkTxt.setAttribute("x", sx(cm.q)); mOkTxt.setAttribute("y", sy(0) - 8); mOkTxt.textContent = fmt(cm.q, 1) + " l/s";
+    } else mOk.setAttribute("visibility", "hidden");
+
+    // Punto de la ficha
+    var tf = terms(p, Q_FICHA), rf = npshr(Q_FICHA);
+    mFLine.setAttribute("x1", sx(Q_FICHA)); mFLine.setAttribute("x2", sx(Q_FICHA));
+    mFLine.setAttribute("y1", sy(clip(Math.max(tf.na, rf)))); mFLine.setAttribute("y2", sy(clip(Math.min(tf.na, rf))));
+    mFDotA.setAttribute("cx", sx(Q_FICHA)); mFDotA.setAttribute("cy", sy(clip(tf.na)));
+    mFDotR.setAttribute("cx", sx(Q_FICHA)); mFDotR.setAttribute("cy", sy(clip(rf)));
+    mFTxt.setAttribute("x", sx(Q_FICHA)); mFTxt.setAttribute("y", sy(clip(Math.max(tf.na, rf))) - 10); mFTxt.textContent = "Ficha " + fmt(Q_FICHA);
+
+    // Veredicto
+    if (cm.q !== null) { $("vQm").innerHTML = fmt(cm.q, 1) + "<small>l/s</small>"; setOut("vQmNote", "NPSHa ≥ NPSHr + " + fmt(p.m, 1) + " m de margen"); }
+    else if (cm.above) { $("vQm").innerHTML = "&gt; " + fmt(QMAX, 0) + "<small>l/s</small>"; setOut("vQmNote", "El NPSH no limita en todo el rango de la curva"); }
+    else { $("vQm").innerHTML = "Ninguno"; setOut("vQmNote", "Ni a caudal mínimo se cumple el margen"); }
+    if (cl.q !== null) $("vQl").innerHTML = fmt(cl.q, 1) + "<small>l/s</small>";
+    else $("vQl").innerHTML = cl.above ? "&gt; " + fmt(QMAX, 0) + "<small>l/s</small>" : "Ninguno";
+    var dF = tf.na - rf;
+    $("vF").innerHTML = (dF >= 0 ? "+" : "−") + fmt(Math.abs(dF), 1) + "<small>m de holgura</small>";
+    setOut("vFNote", "NPSHa " + fmt(tf.na, 1) + " m frente a NPSHr " + fmt(rf, 2) + " m. " + (dF < 0 ? "La bomba cavita." : dF < p.m ? "Sin margen suficiente." : "Cumple."));
+    document.querySelector(".verdict .ficha .big").style.color = dF < p.m ? "var(--bad)" : "var(--ok)";
+
+    // Textos explicativos
+    setOut("wH", cm.q !== null ? "Por qué no se puede pasar de " + fmt(cm.q, 1) + " l/s" : "Qué limita el caudal");
+    setOut("w1", cl.q !== null ? "Las curvas se cruzan en " + fmt(cl.q, 1) + " l/s; con el margen de " + fmt(p.m, 1) + " m el máximo queda en " + (cm.q !== null ? fmt(cm.q, 1) : "—") + " l/s." : "En el rango de la curva no llegan a cruzarse.");
+    var lossF = tf.hf + tf.hm, top = { name: pipeName(p), h: tf.hf, v: tf.v };
+    tf.items.forEach(function (it) { if (it.on && it.h > top.h) top = it; });
+    setOut("w2", "En el punto de la ficha (" + fmt(Q_FICHA) + " l/s) la succión pierde " + fmt(lossF) + " m de los " + fmt(tf.ha - tf.hv - tf.hs) + " m disponibles. El tramo que más pierde es " +
+      top.name + " (" + fmt(top.h) + " m, con el agua a " + fmt(top.v, 1) + " m/s). Las pérdidas crecen con el cuadrado de la velocidad.");
+
+    renderPoint(p, p.q);
+    updateStatus();
+  }
+
+  function renderPoint(p, q) {
+    var t = terms(p, q), r = npshr(q), d = t.na - r;
+    var clip = function (x) { return Math.max(Y0, Math.min(Y1, x)); };
+    hLine.setAttribute("x1", sx(q)); hLine.setAttribute("x2", sx(q));
+    hA.setAttribute("cx", sx(q)); hA.setAttribute("cy", sy(clip(t.na)));
+    hR.setAttribute("cx", sx(q)); hR.setAttribute("cy", sy(clip(r)));
+    var right = sx(q) > W - 170;
+    hTxt.setAttribute("text-anchor", right ? "end" : "start");
+    hTxt.setAttribute("x", sx(q) + (right ? -8 : 8)); hTxt.setAttribute("y", T + 36);
+    hTxt.textContent = "Q " + fmt(q, 1) + " · NPSHa " + fmt(t.na, 2) + " · NPSHr " + fmt(r, 2);
+
+    setOut("rQ", fmt(q, 1) + " l/s"); setOut("rA", fmt(t.na, 2) + " m"); setOut("rR", fmt(r, 2) + " m");
+    var rM = $("rM"); rM.textContent = (d >= 0 ? "+" : "") + fmt(d, 2) + " m";
+    rM.style.color = d < 0 ? "var(--bad)" : d < p.m ? "var(--warn)" : "var(--ok)";
+
+    // Balance
+    setOut("bQ", fmt(q, 1) + " l/s");
+    var pill = $("bPill");
+    if (d < 0) { pill.className = "pill bad"; pill.textContent = "Cavita: faltan " + fmt(-d, 2) + " m"; }
+    else if (d < p.m) { pill.className = "pill warn"; pill.textContent = "Bajo el margen: " + fmt(d, 2) + " m de " + fmt(p.m, 1); }
+    else { pill.className = "pill ok"; pill.textContent = "Cumple: holgura " + fmt(d, 2) + " m"; }
+    var tot = t.ha, na = Math.max(0, t.na);
+    var segs = [["sPv", t.hv, "Pv"], ["sHs", Math.max(0, t.hs), "Hs"], ["sHf", t.hf, "hf"], ["sHm", t.hm, "hm"], ["sNa", na, "NPSHa"]];
+    var used = t.hv + Math.max(0, t.hs) + t.hf + t.hm + na, scale = Math.max(tot, used);
+    segs.forEach(function (s) {
+      var e = $(s[0]), pct = s[1] / scale * 100;
+      e.style.flex = "0 0 " + pct + "%";
+      e.textContent = pct > 7 ? s[2] + " " + fmt(s[1], 1) : "";
+    });
+    var mark = (r + p.m), markPct = Math.max(0, Math.min(100, (scale - mark) / scale * 100));
+    var bm = $("bMark"); bm.style.left = markPct + "%";
+    $("bMarkLbl").textContent = "NPSHr + margen " + fmt(mark, 2) + " m";
+    $("bMarkLbl").style.transform = markPct > 80 ? "translateX(-100%)" : markPct < 20 ? "translateX(0)" : "translateX(-50%)";
+    setOut("tPa", fmt(t.ha) + " m"); setOut("tPv", "− " + fmt(t.hv) + " m"); setOut("tHs", (t.hs >= 0 ? "− " + fmt(t.hs) : "+ " + fmt(-t.hs)) + " m");
+    setOut("tHf", "− " + fmt(t.hf) + " m"); setOut("tHm", "− " + fmt(t.hm) + " m"); setOut("tV", "(v = " + fmt(t.v) + " m/s)");
+    var tNa = $("tNa"); tNa.textContent = fmt(t.na) + " m"; tNa.style.color = d < p.m ? "var(--bad)" : "var(--ok)";
+    setOut("tNr", fmt(r) + " + " + fmt(p.m, 1) + " = " + fmt(mark) + " m");
+
+    // Pérdidas tramo por tramo
+    var loss = t.hf + t.hm;
+    setOut("lQ", fmt(q, 1) + " l/s");
+    setOut("lTot", "Total " + fmt(loss) + " m de " + fmt(t.ha - t.hv - t.hs) + " m disponibles");
+    var row = function (cls, cells, share) {
+      var tr = document.createElement("tr"); if (cls) tr.className = cls;
+      cells.forEach(function (c) { var td = document.createElement("td"); td.textContent = c; tr.appendChild(td); });
+      var td = document.createElement("td"); td.className = "share";
+      if (share !== null) { var b = document.createElement("div"); b.className = "sbar"; b.style.width = Math.max(0, share * 100).toFixed(1) + "%"; b.title = fmt(share * 100, 0) + " %"; td.appendChild(b); }
+      tr.appendChild(td); return tr;
+    };
+    var body = $("lBody"); body.textContent = "";
+    var hvp = t.v * t.v / (2 * G);
+    body.appendChild(row("", [pipeName(p) + " (Hazen-Williams, C " + p.c + ")", fmt(p.d * 1000, 1), fmt(t.v), "—", fmt(hvp), fmt(t.hf) + " m"], loss > 0 ? t.hf / loss : 0));
+    t.items.forEach(function (it) {
+      body.appendChild(row(it.on ? "" : "off", [it.name + (it.on ? "" : " (no incluido)"), fmt(it.d * 1000, 1), fmt(it.v), fmt(it.k), fmt(it.hvel), fmt(it.h) + " m"], it.on && loss > 0 ? it.h / loss : 0));
+    });
+    body.appendChild(row("total", ["Total succión (hf + hm)", "", "", "", "", fmt(loss) + " m"], null));
+    var sumK = t.items.reduce(function (s, it) { return s + (it.on ? it.k : 0); }, 0);
+    $("lNote").innerHTML = "ΣK = <b>" + fmt(sumK) + "</b> es la suma de coeficientes (sin unidades). La pérdida total de <b>" + fmt(loss) +
+      " m</b> es la fricción de la tubería (<b>" + fmt(t.hf) + " m</b>) más las pérdidas de los accesorios (<b>" + fmt(t.hm) + " m</b>), cada uno con su K y su velocidad.";
+
+    // Memoria de cálculo
+    setOut("cQ", fmt(q, 1) + " l/s");
+    var Qs = q / 1000, f4 = function (x) { return x.toFixed(4); }, f5 = function (x) { return x.toFixed(5); };
+    var Ap = Math.PI * p.d * p.d / 4;
+    var html = "";
+    html += '<div class="step"><h3>Datos</h3>' +
+      '<div class="ln">Q = ' + fmt(q, 2) + ' l/s = <b>' + f4(Qs) + ' m³/s</b></div>' +
+      '<div class="ln">g = 9.81 m/s² · agua a ' + p.t + ' °C, ρ = ' + fmt(rho(p.t), 1) + ' kg/m³</div>' +
+      '<div class="ln c">h = K · v² / 2g  ·  v = Q / A  ·  A = π·D² / 4</div></div>';
+    html += '<div class="step"><h3>' + esc(pipeName(p)) + ' (Di ' + fmt(p.d * 1000, 1) + ' mm)</h3>' +
+      '<div class="ln">A = π·' + f4(p.d) + '² / 4 = ' + f5(Ap) + ' m²</div>' +
+      '<div class="ln">v = ' + f4(Qs) + ' / ' + f5(Ap) + ' = ' + fmt(t.v) + ' m/s</div>' +
+      '<div class="ln">hf = 10.67·L·Q<sup>1.852</sup> / (C<sup>1.852</sup>·D<sup>4.87</sup>)</div>' +
+      '<div class="ln">hf = 10.67·' + p.len + '·' + f4(Qs) + '<sup>1.852</sup> / (' + p.c + '<sup>1.852</sup>·' + f4(p.d) + '<sup>4.87</sup>) = <b>' + fmt(t.hf, 3) + ' m</b></div></div>';
+    t.items.forEach(function (it) {
+      html += '<div class="step' + (it.on ? '' : ' off') + '"><h3>' + esc(it.name) + (it.on ? '' : ' (no incluido)') + '</h3>' +
+        '<div class="ln">A = π·' + f4(it.d) + '² / 4 = ' + f5(it.area) + ' m²</div>' +
+        '<div class="ln">v = ' + f4(Qs) + ' / ' + f5(it.area) + ' = ' + fmt(it.v) + ' m/s</div>' +
+        '<div class="ln">v²/2g = ' + fmt(it.v) + '² / (2·9.81) = ' + fmt(it.hvel, 3) + ' m</div>' +
+        (it.note ? '<div class="ln c">' + esc(it.note) + ' = ' + fmt(it.k, 3) + '</div>' : '') +
+        '<div class="ln">h = ' + fmt(it.k, it.note ? 3 : 2) + ' × ' + fmt(it.hvel, 3) + ' = <b>' + fmt(it.h, 3) + ' m</b></div></div>';
+    });
+    var parts = [fmt(t.hf, 3)].concat(t.items.filter(function (it) { return it.on; }).map(function (it) { return fmt(it.h, 3); }));
+    html += '<div class="step total"><h3>Suma y NPSH disponible</h3>' +
+      '<div class="ln">Pérdidas = ' + parts.join(' + ') + ' = <b>' + fmt(loss, 2) + ' m</b></div>' +
+      '<div class="ln">NPSHa = Patm/γ − Pv/γ − Hs − pérdidas</div>' +
+      '<div class="ln">NPSHa = ' + fmt(t.ha) + ' − ' + fmt(t.hv) + ' − ' + fmt(t.hs) + ' − ' + fmt(loss) + ' = <b>' + fmt(t.na) + ' m</b></div>' +
+      '<div class="ln">NPSHr + margen = ' + fmt(r) + ' + ' + fmt(p.m, 1) + ' = ' + fmt(r + p.m) + ' m → ' + (d >= p.m ? 'cumple' : 'no cumple') + '</div></div>';
+    $("calc").innerHTML = html;
+  }
+
+  // Interacción con el gráfico
+  function qFromEvent(ev) {
+    var rect = svg.getBoundingClientRect();
+    var px = (ev.clientX - rect.left) / rect.width * W;
+    return Math.max(+$("q").min, Math.min(+$("q").max, ix(px)));
+  }
+  var dragging = false;
+  svg.addEventListener("pointerdown", function (ev) { if (!P) return; dragging = true; svg.setPointerCapture(ev.pointerId); setVal("q", qFromEvent(ev).toFixed(1)); render(); });
+  svg.addEventListener("pointermove", function (ev) {
+    if (!P) return;
+    if (dragging) { setVal("q", qFromEvent(ev).toFixed(1)); render(); }
+    else renderPoint(params(), qFromEvent(ev));
+  });
+  svg.addEventListener("pointerup", function () { dragging = false; });
+  svg.addEventListener("pointerleave", function () { if (!dragging && P) renderPoint(params(), +$("q").value); });
+
+  ["dia", "diaMan"].concat(ACC.filter(function (a) { return a.tipo !== "ampliacion"; }).map(function (a) { return a.id + "k"; }))
+    .forEach(function (id) { $(id).addEventListener("input", render); });
+  CHK.forEach(function (id) { $(id).addEventListener("change", render); });
+  Object.keys(SELECTS).forEach(function (id) { $(id).addEventListener("change", render); });
+  Object.keys(NUM).forEach(function (id) {
+    var r = $(id), n = $(id + "n");
+    r.addEventListener("input", function () { n.value = trimNum(+r.value, NUM[id].dec); n.setAttribute("aria-invalid", "false"); render(); });
+    n.addEventListener("input", function () {
+      var x = parseFloat(n.value), Lm = limits(id), ok = isFinite(x) && x >= Lm.lo && x <= Lm.hi;
+      n.setAttribute("aria-invalid", ok ? "false" : "true");
+      n.title = ok ? "" : "Valor entre " + Lm.lo + " y " + Lm.hi;
+      if (!ok) return;
+      if (x > +r.max) r.max = x;
+      if (x < +r.min) r.min = x;
+      r.value = x; render();
+    });
+    n.addEventListener("change", function () {
+      var x = parseFloat(n.value);
+      setVal(id, isFinite(x) ? x : +r.value); render();
+    });
+  });
+  $("dia").addEventListener("change", function () {
+    if ($("dia").value === "custom" && !isFinite(parseFloat($("diaMan").value)) && P) $("diaMan").value = String(P.tuberia);
+    render();
+  });
+
+  // ---------- Estado por bomba y guardado ----------
+  var SAVED = null, SAVED_RAW = null, savedAt = null, saveMode = "loading", canSave = true, touched = false, saving = false;
+  var LS_KEY = "npsh-" + CFG.clave + "-escenario", LS_PUMPS = "npsh-" + CFG.clave + "-bombas";
+  var DOC_SCN = "config/escenario", DOC_PUMPS = "config/bombas";
+
+  function defaultsFor(id) {
+    var b = PUMPS[id], base = Object.assign({}, CFG.base, b.base || {}), s = {};
+    s.q = String(num(b.qInicial) ? b.qInicial : b.ficha.q);
+    ["hs", "len", "c", "z", "t", "m"].forEach(function (k) { s[k] = String(base[k]); });
+    s.dia = pipeOption(b.tuberia) ? String(pipeOption(b.tuberia).di) : "custom";
+    s.diaMan = String(b.tuberia);
+    ACC.forEach(function (a) {
+      var o = (b.accesorios && b.accesorios[a.id]) || {};
+      s[a.id + "on"] = typeof o.activo === "boolean" ? o.activo : !!a.activo;
+      if (a.tipo !== "ampliacion") s[a.id + "k"] = String(num(o.k) ? o.k : a.k);
+      if (a.tipo === "elegible") {
+        var want = num(o.d) ? o.d : num(a.d) ? a.d : CFG.diametros[0].di, pick = CFG.diametros[0].di;
+        CFG.diametros.forEach(function (d) { if (Math.abs(d.di - want) < Math.abs(pick - want)) pick = d.di; });
+        s[a.id + "d"] = String(pick);
+      }
+    });
+    return s;
+  }
+  function saveState() {
+    if (!pumpId || !PUMPS[pumpId]) return;
+    var s = {};
+    CTRL.forEach(function (id) { s[id] = NUM[id] ? String(val(id)) : $(id).value; });
+    CHK.forEach(function (id) { s[id] = $(id).checked; });
+    STATE[pumpId] = s;
+  }
+  function applyValues(s) {
+    CTRL.forEach(function (k) {
+      if (s[k] === undefined) return;
+      if (NUM[k]) setVal(k, parseFloat(s[k])); else $(k).value = s[k];
+    });
+    CHK.forEach(function (k) { if (s[k] !== undefined) $(k).checked = s[k]; });
+  }
+  function applyDefaults() { applyValues(defaultsFor(pumpId)); }
+  // Lo guardado viene de fuera de la página: solo se aceptan claves conocidas y valores válidos
+  function clean(src) {
+    var out = {};
+    if (!src || typeof src !== "object") return out;
+    Object.keys(PUMPS).forEach(function (id) {
+      var v = src[id]; if (!v || typeof v !== "object") return;
+      var s = {};
+      CTRL.forEach(function (k) {
+        var x = v[k]; if (typeof x !== "string" && typeof x !== "number") return;
+        x = String(x);
+        // Versiones anteriores guardaban el diámetro de las válvulas en metros
+        if (SELECTS[k] && k !== "dia" && parseFloat(x) < 5) x = String(Math.round(parseFloat(x) * 10000) / 10);
+        if (SELECTS[k]) { if ([].some.call($(k).options, function (o) { return o.value === x; })) s[k] = x; }
+        else if (isFinite(parseFloat(x))) s[k] = x;
+      });
+      CHK.forEach(function (k) { if (typeof v[k] === "boolean") s[k] = v[k]; });
+      out[id] = Object.assign(defaultsFor(id), s);
+    });
+    return out;
+  }
+  function allValues() {
+    saveState();
+    var o = {};
+    Object.keys(PUMPS).forEach(function (id) { o[id] = STATE[id] || defaultsFor(id); });
+    return o;
+  }
+  function reference() {
+    var o = {};
+    Object.keys(PUMPS).forEach(function (id) { o[id] = (SAVED && SAVED[id]) || defaultsFor(id); });
+    return o;
+  }
+  function same(a, b) {
+    return Object.keys(PUMPS).every(function (id) {
+      return CTRL.every(function (k) { return parseFloat(a[id][k]) === parseFloat(b[id][k]) || a[id][k] === b[id][k]; }) &&
+        CHK.every(function (k) { return a[id][k] === b[id][k]; });
+    });
+  }
+  function when(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return "";
+    return d.toLocaleDateString("es-PE", { day: "2-digit", month: "2-digit", year: "numeric" }) + " " +
+      d.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+  }
+  function setStatus(state, text) { $("saveStatus").setAttribute("data-state", state); setOut("saveText", text); }
+  function updateStatus() {
+    if (!pumpId) return;
+    var dirty = !same(allValues(), reference());
+    $("save").hidden = !canSave;
+    $("save").disabled = saving || !dirty || saveMode === "loading";
+    $("revert").hidden = !(SAVED && dirty);
+    if (saveMode === "loading") return setStatus("", "Cargando datos guardados…");
+    if (saveMode === "error") return setStatus("error", "No se pudieron cargar los datos guardados. Los valores mostrados son los de base.");
+    if (saving) return setStatus("dirty", "Guardando…");
+    if (!canSave) return setStatus(SAVED ? "saved" : "", (SAVED ? "Valores guardados" + (savedAt ? " el " + when(savedAt) : "") + ". " : "") + "Solo lectura: puede probar valores, pero no guardarlos.");
+    var where = saveMode === "local" ? " en este navegador" : "";
+    if (dirty) return setStatus("dirty", "Cambios sin guardar" + (SAVED ? "" : ". Aún no hay valores guardados") + ".");
+    if (SAVED) return setStatus("saved", "Guardado" + where + (savedAt ? " · " + when(savedAt) : ""));
+    setStatus("", "Valores base. Aún no hay cambios guardados" + where + ".");
+  }
+  // Carga lo guardado en los controles (solo si el usuario aún no editó nada en esta visita)
+  function receive(values, at) {
+    SAVED_RAW = values; SAVED = clean(values); savedAt = at || null;
+    if (!touched) {
+      STATE = JSON.parse(JSON.stringify(SAVED));
+      if (pumpId) { applyValues(STATE[pumpId] || defaultsFor(pumpId)); render(); }
+    }
+    updateStatus();
+  }
+
+  function refreshEmpty() {
+    var none = !ORDER.length;
+    $("appMain").hidden = none; $("empty").hidden = !none;
+    if (none) {
+      pumpId = null; P = null; $("pumpTools").hidden = true;
+      ["pPump", "pPipe", "pFluid"].forEach(function (id) { setOut(id, "—"); });
+      setOut("pLede", "Este análisis compara la energía disponible en la succión (NPSHa) con la que exige la bomba (NPSHr) para fijar el caudal máximo sin cavitación.");
+    }
+    updateFooter();
+  }
+
+  function selectPump(id) {
+    if (!ORDER.length) { refreshEmpty(); return; }
+    if (!PUMPS[id]) id = ORDER[0];
+    saveState();
+    pumpId = id; P = PUMPS[id];
+    NPSHR = P.curva; QMIN = NPSHR[0][0]; QMAX = NPSHR[NPSHR.length - 1][0]; Q_FICHA = P.ficha.q;
+    setAxes();
+    var qs = $("q"); qs.min = Math.ceil(QMIN * 100) / 100; qs.max = Math.floor(QMAX * 100) / 100;
+    if (STATE[id]) applyValues(STATE[id]);
+    else applyDefaults();
+    document.querySelectorAll("#tabs button").forEach(function (b) { b.setAttribute("aria-selected", b.getAttribute("data-pump") === id ? "true" : "false"); });
+    setOut("pPump", P.modelo + (num(P.kw) ? " · " + P.kw + " kW" : "") + " · " + P.rpm + " rpm");
+    setOut("pPipe", pipeText(P));
+    setOut("pLede", "La bomba " + P.modelo + " (" + P.nombre.toLowerCase() + ") aspira desde el reservorio a través de la línea de succión " + pipeText(P) +
+      ". Este análisis compara la energía disponible en la succión (NPSHa) con la que exige la bomba (NPSHr) para fijar el caudal máximo sin cavitación. Mueva los parámetros para ver cómo cambia el resultado.");
+    setOut("vFLbl", "Punto de la ficha · " + fmt(P.ficha.q) + " l/s" + (num(P.ficha.h) ? " @ " + P.ficha.h + " m" : ""));
+    setOut("nNpshr", "Curva del fabricante" + (num(P.impulsor) ? ", impulsor " + P.impulsor + " mm" : "") + " a " + P.rpm + " rpm" +
+      (num(P.ficha.npshr) ? " (" + fmt(P.ficha.npshr) + " m en " + fmt(P.ficha.q) + " l/s)" : "") +
+      (P.importada ? ". Datos cargados desde la página" + (P.fuente ? " (" + P.fuente + ")" : "") + "; verificar contra la ficha." : ""));
+    $("pumpTools").hidden = !P.importada;
+    if (P.importada) setOut("ptText", "Bomba agregada desde su ficha" + (P.fuente ? " (" + P.fuente + ")" : "") + ". Revise la curva NPSHr antes de usar el resultado.");
+    resetDel();
+    try { if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id); } catch (e) {}
+    refreshEmpty();
+    drawAxes();
+    render();
+  }
+  window.addEventListener("hashchange", function () { var h = location.hash.slice(1); if (PUMPS[h] && h !== pumpId) { pickedTab = true; selectPump(h); } });
+
+  // Cualquier edición del usuario marca la visita como "tocada" (ya no se sobrescribe con lo guardado)
+  var panel = document.querySelector(".controls");
+  ["input", "change"].forEach(function (t) { panel.addEventListener(t, function () { touched = true; updateStatus(); }); });
+  svg.addEventListener("pointerdown", function () { touched = true; });
+  $("reset").addEventListener("click", function () { if (!P) return; touched = true; applyDefaults(); render(); });
+  $("revert").addEventListener("click", function () {
+    if (!SAVED || !P) return;
+    STATE = JSON.parse(JSON.stringify(SAVED)); applyValues(STATE[pumpId] || defaultsFor(pumpId)); render();
+  });
+
+  var db = null;
+  $("save").addEventListener("click", function () {
+    var values = allValues(), at = new Date().toISOString();
+    // Conserva lo guardado de bombas que hoy no están cargadas
+    if (SAVED_RAW && typeof SAVED_RAW === "object") Object.keys(SAVED_RAW).forEach(function (id) { if (!PUMPS[id] && /^[a-z0-9-]{1,48}$/.test(id)) values[id] = SAVED_RAW[id]; });
+    if (saveMode === "local") {
+      try { localStorage.setItem(LS_KEY, JSON.stringify({ values: values, savedAt: at })); SAVED_RAW = values; SAVED = clean(values); savedAt = at; }
+      catch (e) { setStatus("error", "Este navegador no permite guardar. Copie los valores a mano."); return; }
+      updateStatus(); return;
+    }
+    if (!db) return;
+    saving = true; updateStatus();
+    db.doc(DOC_SCN).set({ values: values, savedAt: at }).then(function () {
+      saving = false; SAVED_RAW = values; SAVED = clean(values); savedAt = at; updateStatus();
+    }, function (e) {
+      saving = false;
+      if (e && e.code === "invalid_argument") { canSave = false; updateStatus(); return; }
+      updateStatus();
+      setStatus("error", e && e.code === "quota_exceeded" ? "No hay espacio para guardar. Avise al responsable del archivo." : "No se pudo guardar. Revise la conexión e intente de nuevo.");
+    });
+  });
+
+  // ---------- Bombas agregadas desde la página ----------
+  function toStored(b) {
+    var o = JSON.parse(JSON.stringify(b));
+    o.curva = b.curva.map(function (pt) { return { q: pt[0], r: pt[1] }; });   // sin listas anidadas
+    delete o.importada;
+    return o;
+  }
+  function fromStored(o) {
+    if (!o || typeof o !== "object") return null;
+    var str = function (x, n) { return typeof x === "string" ? x.slice(0, n) : ""; };
+    var b = {
+      id: o.id, nombre: str(o.nombre, 40), modelo: str(o.modelo, 80),
+      kw: num(o.kw) ? o.kw : null, rpm: o.rpm, impulsor: num(o.impulsor) ? o.impulsor : null,
+      brida: { nombre: str(o.brida && o.brida.nombre, 20), di: o.brida && o.brida.di },
+      ficha: { q: o.ficha && o.ficha.q, h: o.ficha && num(o.ficha.h) ? o.ficha.h : null, npshr: o.ficha && num(o.ficha.npshr) ? o.ficha.npshr : null },
+      curva: Array.isArray(o.curva) ? o.curva.slice(0, 300).map(function (pt) { return pt && typeof pt === "object" && !Array.isArray(pt) ? [pt.q, pt.r] : pt; }) : null,
+      tuberia: o.tuberia, tuberiaTexto: str(o.tuberiaTexto, 80), fuente: str(o.fuente, 120), importada: true
+    };
+    return pumpErrors(b).length ? null : b;
+  }
+  function setImported(list) {
+    var cfgIds = {}; CFG.bombas.forEach(function (b) { cfgIds[b.id] = true; });
+    IMPORTED = (Array.isArray(list) ? list : []).map(fromStored).filter(function (b) {
+      if (!b || cfgIds[b.id]) return false; cfgIds[b.id] = true; return true;
+    });
+    afterPumpsChange(null);
+  }
+  function afterPumpsChange(selectId) {
+    rebuildPumps();
+    if (SAVED_RAW) { SAVED = clean(SAVED_RAW); if (!touched) STATE = JSON.parse(JSON.stringify(SAVED)); }
+    var target = selectId || (!pickedTab && PUMPS[initialHash] ? initialHash : pumpId);
+    if (!PUMPS[target]) target = ORDER[0];
+    if (pumpId && !PUMPS[pumpId]) { pumpId = null; P = null; }
+    if (target) selectPump(target); else refreshEmpty();
+    updateStatus();
+  }
+  function pumpMsg(text) { var e = $("pumpMsg"); e.textContent = text; e.hidden = !text; }
+  function persistPumps() {
+    var data = IMPORTED.map(toStored);
+    if (saveMode === "local") {
+      try { localStorage.setItem(LS_PUMPS, JSON.stringify(data)); return Promise.resolve("Cambios en las bombas guardados en este navegador."); }
+      catch (e) { return Promise.resolve("Este navegador no permite guardar: los cambios en las bombas se perderán al cerrar la página."); }
+    }
+    if (saveMode === "shared" && db && canSave) {
+      return db.doc(DOC_PUMPS).set({ lista: data, savedAt: new Date().toISOString() }).then(
+        function () { return "Cambios en las bombas guardados para todos los que usan esta página."; },
+        function () { return "No se pudieron guardar los cambios en las bombas; se perderán al cerrar la página."; });
+    }
+    return Promise.resolve("Solo lectura: los cambios en las bombas quedan solo en esta visita.");
+  }
+
+  // Quitar (con confirmación en dos pasos)
+  var delTimer = null;
+  function resetDel() { clearTimeout(delTimer); $("delPump").textContent = "Quitar bomba"; $("delPump").dataset.arm = ""; }
+  $("delPump").addEventListener("click", function () {
+    var btn = $("delPump");
+    if (!btn.dataset.arm) { btn.dataset.arm = "1"; btn.textContent = "¿Quitar " + P.nombre + "? Confirmar"; delTimer = setTimeout(resetDel, 5000); return; }
+    resetDel();
+    var gone = pumpId;
+    IMPORTED = IMPORTED.filter(function (b) { return b.id !== gone; });
+    delete STATE[gone];
+    pumpId = null; P = null;
+    afterPumpsChange(null);
+    persistPumps().then(pumpMsg);
+  });
+
+  // ---------- Formulario de bomba ----------
+  var dlg = $("dlg"), editingId = null, readCtl = null, fileName = "";
+  fillPipeSelect($("fTub"));
+  $("fTub").addEventListener("change", function () { $("fTubDBox").hidden = $("fTub").value !== "custom"; });
+  function numIn(id) { var s = $(id).value.trim().replace(",", "."); if (!s) return null; var x = Number(s); return isFinite(x) ? x : NaN; }
+  function r3(x) { return String(Math.round(x * 1000) / 1000); }
+  function setField(id, x) { $(id).value = num(x) ? r3(x) : (typeof x === "string" ? x : ""); }
+  function listTo(id, items) {
+    var ul = $(id); ul.textContent = "";
+    items.forEach(function (m) { mk("li", {}, m, ul); });
+    ul.hidden = !items.length;
+  }
+  function parseCurve(text, f, errs) {
+    var out = [];
+    text.split(/\r?\n/).forEach(function (line, i) {
+      line = line.trim(); if (!line) return;
+      var parts;
+      if (/[;\t]/.test(line)) parts = line.split(/\s*[;\t]\s*/).map(function (s) { return s.replace(",", "."); });
+      else if (/\s/.test(line)) parts = line.split(/\s+/).map(function (s) { return s.replace(",", "."); });
+      else parts = line.split(",");
+      parts = parts.filter(function (s) { return s !== ""; });
+      var q = Number(parts[0]), r = Number(parts[1]);
+      if (parts.length < 2 || !isFinite(q) || !isFinite(r)) { errs.push("Curva, línea " + (i + 1) + ": no se entiende «" + line.slice(0, 40) + "»."); return; }
+      out.push([Math.round(q * f * 1000) / 1000, r]);
+    });
+    return out;
+  }
+  function slug(s) {
+    return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24) || "bomba";
+  }
+  function openDlg(b) {
+    editingId = b ? b.id : null;
+    setOut("dlgT", b ? "Editar bomba" : "Agregar bomba");
+    setOut("fSave", b ? "Guardar cambios" : "Agregar bomba");
+    $("fFile").value = ""; fileName = b && b.fuente || "";
+    setOut("fStatus", ""); listTo("fWarn", []); listTo("fErr", []);
+    $("fQu").value = "ls";
+    setField("fNombre", b ? b.nombre : ""); setField("fModelo", b ? b.modelo : "");
+    setField("fKw", b ? b.kw : null); setField("fRpm", b ? b.rpm : null); setField("fImp", b ? b.impulsor : null);
+    setField("fBrN", b ? b.brida.nombre : ""); setField("fBrD", b ? b.brida.di : null);
+    setField("fQ", b ? b.ficha.q : null); setField("fH", b ? b.ficha.h : null); setField("fR", b ? b.ficha.npshr : null);
+    $("fCurva").value = b ? b.curva.map(function (pt) { return r3(pt[0]) + " ; " + r3(pt[1]); }).join("\n") : "";
+    var tb = b ? b.tuberia : (P ? P.tuberia : (CFG.tuberias[0] ? CFG.tuberias[0].di : null));
+    var opt = num(tb) ? pipeOption(tb) : null;
+    $("fTub").value = opt ? String(opt.di) : "custom";
+    setField("fTubD", opt ? null : tb);
+    $("fTubDBox").hidden = $("fTub").value !== "custom";
+    setField("fTubT", b ? b.tuberiaTexto : "");
+    readUI(false);
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  }
+  function closeDlg() { if (readCtl) readCtl.abort(); if (dlg.open) dlg.close(); }
+  $("addPump").addEventListener("click", function () { openDlg(null); });
+  $("addPump2").addEventListener("click", function () { openDlg(null); });
+  $("editPump").addEventListener("click", function () { if (P && P.importada) openDlg(P); });
+  $("fCancel").addEventListener("click", closeDlg);
+  dlg.addEventListener("cancel", function () { if (readCtl) readCtl.abort(); });
+  $("dlgForm").addEventListener("submit", function (ev) { ev.preventDefault(); });
+
+  $("fSave").addEventListener("click", function () {
+    var errs = [], f = $("fQu").value === "m3h" ? 1 / 3.6 : 1;
+    var nombre = $("fNombre").value.trim(), modelo = $("fModelo").value.trim();
+    var fields = { fKw: "potencia", fRpm: "velocidad", fImp: "impulsor", fBrD: "diámetro de la brida", fQ: "caudal de la ficha", fH: "altura de la ficha", fR: "NPSHr de la ficha", fTubD: "diámetro de la tubería" };
+    Object.keys(fields).forEach(function (id) { if (isNaN(numIn(id)) && numIn(id) !== null) errs.push("El valor de " + fields[id] + " no es un número."); });
+    var curva = parseCurve($("fCurva").value, f, errs);
+    var q = numIn("fQ"), tubSel = $("fTub").value;
+    var b = {
+      id: editingId || slug(nombre || modelo) + "-" + Date.now().toString(36).slice(-5),
+      nombre: nombre, modelo: modelo, kw: numIn("fKw"), rpm: numIn("fRpm"), impulsor: numIn("fImp"),
+      brida: { nombre: $("fBrN").value.trim(), di: numIn("fBrD") },
+      ficha: { q: num(q) ? Math.round(q * f * 1000) / 1000 : q, h: numIn("fH"), npshr: numIn("fR") },
+      curva: curva,
+      tuberia: tubSel === "custom" ? numIn("fTubD") : +tubSel,
+      tuberiaTexto: $("fTubT").value.trim(), fuente: fileName, importada: true
+    };
+    ["kw", "impulsor"].forEach(function (k) { if (!num(b[k])) b[k] = null; });
+    ["h", "npshr"].forEach(function (k) { if (!num(b.ficha[k])) b.ficha[k] = null; });
+    if (!errs.length) errs = pumpErrors(b);
+    if (nombre && CFG.bombas.concat(IMPORTED).some(function (x) { return x.id !== editingId && x.nombre.toLowerCase() === nombre.toLowerCase(); }))
+      errs.push("Ya hay una bomba con el nombre «" + nombre + "».");
+    if (saveMode === "loading") errs.push("Espere a que terminen de cargar los datos guardados e intente de nuevo.");
+    listTo("fErr", errs);
+    if (errs.length) return;
+    if (editingId) IMPORTED = IMPORTED.map(function (x) { return x.id === editingId ? b : x; });
+    else IMPORTED = IMPORTED.concat([b]);
+    pickedTab = true;
+    saveState();
+    if (pumpId === b.id) { pumpId = null; P = null; }
+    closeDlg();
+    afterPumpsChange(b.id);
+    persistPumps().then(pumpMsg);
+  });
+
+  // ---------- Lectura de la ficha con Claude ----------
+  var sample = null, imgLimits = null;
+  var PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+  function readUI(busy) {
+    $("fRead").disabled = busy; $("fFile").disabled = busy; $("fStop").hidden = !busy; $("fSave").disabled = busy;
+  }
+  function setReadAvailable(ok) {
+    $("readRow").hidden = !ok;
+    setOut("readHint", ok
+      ? "Suba la ficha en PDF o imagen. Claude lee el modelo, la velocidad, la brida de succión, el punto de operación y la curva NPSHr, y llena el formulario. Revise los valores antes de agregar la bomba."
+      : "La lectura automática de la ficha está disponible al abrir esta página en claude.ai. Aquí puede ingresar los datos a mano; la curva NPSHr se puede pegar desde Excel.");
+  }
+  setReadAvailable(false);
+  function loadPdfJs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    return new Promise(function (res, rej) {
+      var s = document.createElement("script");
+      s.src = PDFJS + "pdf.min.js";
+      s.onload = function () { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.js"; res(window.pdfjsLib); };
+      s.onerror = function () { rej(new Error("no se pudo cargar el lector de PDF")); };
+      document.head.appendChild(s);
+    });
+  }
+  async function pdfToImages(file, max) {
+    var lib = await loadPdfJs();
+    var doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    var n = Math.min(doc.numPages, max), out = [];
+    for (var i = 1; i <= n; i++) {
+      var page = await doc.getPage(i), vp0 = page.getViewport({ scale: 1 });
+      var scale = Math.min(3, 1800 / Math.max(vp0.width, vp0.height)), vp = page.getViewport({ scale: scale });
+      var cv = document.createElement("canvas"); cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
+      var ctx = cv.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      out.push(await new Promise(function (r) { cv.toBlob(r, "image/png"); }));
+    }
+    return { images: out, pages: doc.numPages };
+  }
+  var PROMPT = [
+    "Las imágenes son las páginas de la ficha técnica de una bomba centrífuga. Extrae los datos necesarios para un análisis de NPSH.",
+    "Responde SOLO con un objeto JSON con esta forma exacta:",
+    "{\"modelo\": string, \"potencia_kw\": number|null, \"rpm\": number|null, \"impulsor_mm\": number|null,",
+    " \"brida_succion\": {\"nombre\": string|null, \"di_mm\": number|null},",
+    " \"punto_ficha\": {\"q_ls\": number|null, \"h_m\": number|null, \"npshr_m\": number|null},",
+    " \"curva_npshr\": [{\"q_ls\": number, \"npshr_m\": number}],",
+    " \"advertencias\": [string]}",
+    "Reglas:",
+    "- Convierte los caudales a l/s (1 m³/h = 0.277778 l/s; 1 US gpm = 0.0630902 l/s) y las alturas a m (1 ft = 0.3048 m).",
+    "- curva_npshr: la curva NPSH requerido (NPSHr o NPSH3) del diámetro de impulsor de la bomba ofertada, entre 15 y 30 puntos repartidos en todo el rango dibujado, en orden de caudal creciente. Lee cada valor contra la cuadrícula de los ejes con el mayor cuidado posible.",
+    "- punto_ficha: el punto de operación o de diseño indicado en la ficha (caudal, altura y NPSHr en ese punto).",
+    "- rpm: velocidad nominal de la bomba. potencia_kw: potencia del motor.",
+    "- brida_succion: designación de la brida o boca de succión (por ejemplo \"DN65\") y su diámetro interior aproximado en mm (si solo aparece el DN, usa ese valor en mm).",
+    "- Si un dato no aparece, usa null. No inventes valores.",
+    "- En advertencias anota en español cada supuesto, conversión de unidades o lectura dudosa de la curva."
+  ].join("\n");
+  function sampleMsg(e) {
+    var c = e && e.code;
+    if (c === "cancelled") return "Lectura detenida.";
+    if (c === "not_granted" || c === "sampling_disabled" || c === "not_declared" || c === "capability_disabled" || c === "images_unavailable") return "Esta página no tiene permiso para usar Claude. Ingrese los datos a mano.";
+    if (c === "rate_limited") return "Se alcanzó el límite de uso de Claude. Intente más tarde o ingrese los datos a mano.";
+    if (c === "image_rejected") return "La imagen no es válida o es demasiado grande. Pruebe con otro archivo.";
+    if (c === "invalid_json" || c === "empty_completion" || c === "refused") return "Claude no devolvió datos legibles. Intente de nuevo o ingrese los datos a mano.";
+    if (c === "session_expired") return "La sesión expiró. Vuelva a iniciar sesión en claude.ai.";
+    if (c) return "No se pudo leer la ficha (" + c + "). Intente de nuevo.";
+    return "No se pudo leer el archivo: " + (e && e.message || "error desconocido") + ".";
+  }
+  function fillFromAI(r, warns) {
+    if (!r || typeof r !== "object") throw { code: "invalid_json" };
+    var n = function (x) { return num(x) ? x : null; };
+    if (typeof r.modelo === "string" && r.modelo.trim()) { $("fModelo").value = r.modelo.trim().slice(0, 80); if (!$("fNombre").value.trim()) $("fNombre").value = r.modelo.trim().slice(0, 40); }
+    setField("fKw", n(r.potencia_kw)); setField("fRpm", n(r.rpm)); setField("fImp", n(r.impulsor_mm));
+    var br = r.brida_succion || {};
+    setField("fBrN", typeof br.nombre === "string" ? br.nombre.slice(0, 20) : ""); setField("fBrD", n(br.di_mm));
+    var pf = r.punto_ficha || {};
+    $("fQu").value = "ls";
+    setField("fQ", n(pf.q_ls)); setField("fH", n(pf.h_m)); setField("fR", n(pf.npshr_m));
+    var pts = (Array.isArray(r.curva_npshr) ? r.curva_npshr : []).map(function (p) {
+      return Array.isArray(p) ? [p[0], p[1]] : p && typeof p === "object" ? [p.q_ls, p.npshr_m] : null;
+    }).filter(function (p) { return p && num(p[0]) && num(p[1]); }).sort(function (a, b) { return a[0] - b[0]; });
+    $("fCurva").value = pts.map(function (p) { return r3(p[0]) + " ; " + r3(p[1]); }).join("\n");
+    (Array.isArray(r.advertencias) ? r.advertencias : []).forEach(function (w) { if (typeof w === "string" && w.trim()) warns.push(w.trim().slice(0, 300)); });
+    if (pts.length < 3) warns.push("No se pudo leer la curva NPSHr completa. Ingrésela a mano.");
+    if (pts.length >= 3 && num(pf.q_ls)) {
+      if (pf.q_ls < pts[0][0] || pf.q_ls > pts[pts.length - 1][0]) warns.push("El caudal del punto de la ficha queda fuera del rango de la curva leída.");
+      else if (num(pf.npshr_m) && pf.npshr_m > 0) {
+        var i = 1; while (pts[i][0] < pf.q_ls) i++;
+        var a = pts[i - 1], b = pts[i], rq = a[1] + (pf.q_ls - a[0]) / (b[0] - a[0]) * (b[1] - a[1]), dev = (rq - pf.npshr_m) / pf.npshr_m;
+        if (Math.abs(dev) > 0.08) warns.push("Control: la curva leída da " + r3(rq) + " m en el caudal de la ficha, pero la ficha indica " + r3(pf.npshr_m) + " m (" + Math.round(dev * 100) + " %). Revise los puntos de la curva.");
+        else warns.push("Control: la curva leída coincide con el NPSHr publicado en el punto de la ficha (diferencia " + Math.round(dev * 1000) / 10 + " %).");
+      }
+    }
+  }
+  $("fStop").addEventListener("click", function () { if (readCtl) readCtl.abort(); });
+  $("fRead").addEventListener("click", async function () {
+    var file = $("fFile").files[0];
+    listTo("fWarn", []);
+    if (!file) { setOut("fStatus", "Elija primero el archivo de la ficha."); return; }
+    if (!sample || !imgLimits) { setOut("fStatus", "La lectura automática no está disponible aquí."); return; }
+    var isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    if (!isPdf && imgLimits.mediaTypes.indexOf(file.type) < 0) { setOut("fStatus", "Formato no admitido. Use PDF, PNG, JPG o WebP."); return; }
+    var ctl = readCtl = new AbortController();
+    readUI(true);
+    try {
+      var images = [file], warns = [];
+      if (isPdf) {
+        setOut("fStatus", "Convirtiendo el PDF en imágenes…");
+        var conv = await pdfToImages(file, Math.max(1, Math.min(imgLimits.maxCount, 5)));
+        images = conv.images;
+        if (conv.pages > images.length) warns.push("Se leyeron solo las primeras " + images.length + " de " + conv.pages + " páginas del PDF.");
+        if (ctl.signal.aborted) throw { code: "cancelled" };
+      }
+      setOut("fStatus", "Claude está leyendo la ficha. Puede tardar uno o dos minutos…");
+      var r = await sample.json(PROMPT, { images: images, modelTier: "complex", signal: ctl.signal });
+      fileName = file.name.slice(0, 120);
+      fillFromAI(r, warns);
+      listTo("fWarn", warns);
+      setOut("fStatus", "Listo. Revise los datos, sobre todo la curva, antes de agregar la bomba.");
+    } catch (e) {
+      setOut("fStatus", sampleMsg(e));
+    } finally {
+      if (readCtl === ctl) readCtl = null;
+      readUI(false);
+    }
+  });
+
+  // ---------- Arranque ----------
+  rebuildPumps();
+  selectPump(initialHash);
+  refreshEmpty();
+  updateStatus();
+
+  function useLocal() {
+    saveMode = "local";
+    try { var rp = localStorage.getItem(LS_PUMPS); if (rp) setImported(JSON.parse(rp)); } catch (e) {}
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (raw) { var o = JSON.parse(raw); receive(o.values, o.savedAt); return; }
+    } catch (e) {}
+    updateStatus();
+  }
+  if (!window.claude || typeof window.claude.use !== "function") { useLocal(); return; }
+
+  window.claude.use("sample").then(function (s) {
+    if (!s || typeof s.limits !== "function") return;
+    return s.limits().then(function (lim) {
+      if (lim && lim.images) { sample = s; imgLimits = lim.images; setReadAvailable(true); }
+    });
+  }).catch(function () {});
+
+  Promise.all([window.claude.use("db"), window.claude.use("user")]).then(function (r) {
+    db = r[0]; var user = r[1];
+    if (!db) { useLocal(); return; }
+    if (user) user.can("data.write").then(function (ok) { if (ok === false) { canSave = false; updateStatus(); } });
+    var timer = setTimeout(function () { if (saveMode === "loading") { saveMode = "error"; updateStatus(); } }, 10000);
+    db.doc(DOC_PUMPS).onSnapshot(function (snap) {
+      if (snap.metadata.fromCache && !snap.exists) return;
+      var d = snap.exists ? snap.data() : null;
+      setImported(d && Array.isArray(d.lista) ? d.lista : []);
+    }, function () {});
+    db.doc(DOC_SCN).onSnapshot(function (snap) {
+      if (snap.metadata.fromCache && !snap.exists) return;
+      clearTimeout(timer);
+      saveMode = "shared";
+      var d = snap.exists ? snap.data() : null;
+      if (d && d.values) receive(d.values, typeof d.savedAt === "string" ? d.savedAt : null);
+      else updateStatus();
+    }, function () { clearTimeout(timer); saveMode = "error"; updateStatus(); });
+  }, useLocal);
+})();
+</script>
+</body>
+</html>
